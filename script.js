@@ -1,0 +1,560 @@
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const COLS = 15;
+const ROWS = 10;
+let TILE_SIZE = 64; 
+let offsetX = 0;
+let offsetY = 0;
+
+let currentUser = "";
+let gameState = {
+    coins: 100, energy: 100,
+    inventory: { carrot: 0, tomato: 0, radish: 0 },
+    farmTiles: [], difficulty: "1", currentPet: "pig", 
+    petsOwned: ["pig"], 
+    petStats: { pig: { lv: 1, exp: 0 }, fox: { lv: 1, exp: 0 }, cat: { lv: 1, exp: 0 } },
+    isPro: false,
+    mistakes: {} 
+};
+
+let activePets = {
+    pig: { x: 5, y: 5, targetX: 5, targetY: 5, state: 'idle', timer: 0, dir: 'Down' },
+    fox: { x: 8, y: 8, targetX: 8, targetY: 8, state: 'idle', timer: 0, dir: 'Down' },
+    cat: { x: 10, y: 5, targetX: 10, targetY: 5, state: 'idle', timer: 0, dir: 'Down' }
+};
+
+const PET_DATA = {
+    pig: { id: 'pig', title: '神豬', cost: 0, desc: '預設擁有' },
+    fox: { id: 'fox', title: '我的刀盾', cost: 15000, desc: '需 💰15,000' },
+    cat: { id: 'cat', title: '比比拉布', cost: 50000, desc: '💰50,000 (Pro解鎖)' } 
+};
+
+const SEED_DATA = {
+    carrot: { id: 'carrot', name: '🥕 蘿蔔', cost: 20, sellPrice: 35, unlockLv: 1, exp: 35, growthFactor: 1.0 },
+    tomato: { id: 'tomato', name: '🍅 番茄', cost: 150, sellPrice: 250, unlockLv: 3, exp: 100, growthFactor: 0.5 },
+    radish: { id: 'radish', name: '🧅 甜菜', cost: 800, sellPrice: 1200, unlockLv: 5, exp: 300, growthFactor: 0.2 }
+};
+
+let currentSeed = 'carrot';
+let currentWord = {};
+
+const assets = {
+    grass: 'assets/Terrain/Grass_Light.png', soil: 'assets/Objects/GardenBed_Blank.png',
+    carrot_01: 'assets/Objects/GardenBed_Carrots_01.png', carrot_02: 'assets/Objects/GardenBed_Carrots_02.png',
+    tomato_01: 'assets/Objects/GardenBed_Tomatoes_01.png', tomato_02: 'assets/Objects/GardenBed_Tomatoes_02.png',
+    radish_01: 'assets/Objects/GardenBed_Radish_01.png', radish_02: 'assets/Objects/GardenBed_Radish_02.png',
+    pig_Up: 'assets/Characters/Pig_Up.png', pig_Down: 'assets/Characters/Pig_Down.png', pig_Left: 'assets/Characters/Pig_Left.png', pig_Right: 'assets/Characters/Pig_Right.png', pig_Dead: 'assets/Characters/Pig_Dead.png',
+    fox_Up: 'assets/Characters/Fox_Up.png', fox_Down: 'assets/Characters/Fox_Down.png', fox_Left: 'assets/Characters/Fox_Left.png', fox_Right: 'assets/Characters/Fox_Right.png', fox_Dead: 'assets/Characters/Fox_Dead.png',
+    cat_Up: 'assets/Characters/Cat_Up.png', cat_Down: 'assets/Characters/Cat_Down.png', cat_Left: 'assets/Characters/Cat_Left.png', cat_Right: 'assets/Characters/Cat_Right.png', cat_Dead: 'assets/Characters/Cat_Dead.png'
+};
+
+const images = {};
+function loadAssets() {
+    Object.keys(assets).forEach(k => {
+        images[k] = new Image(); images[k].src = assets[k];
+        images[k].onload = () => { images[k].isLoaded = true; };
+        images[k].onerror = () => { images[k].isLoaded = false; };
+    });
+}
+
+function resize() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = rect.width; 
+    canvas.height = rect.height;
+    let tileW = canvas.width / COLS;
+    let tileH = canvas.height / ROWS;
+    TILE_SIZE = Math.floor(Math.min(tileW, tileH));
+    offsetX = Math.floor((canvas.width - (TILE_SIZE * COLS)) / 2);
+    offsetY = Math.floor((canvas.height - (TILE_SIZE * ROWS)) / 2);
+}
+window.addEventListener('resize', resize);
+
+function login() {
+    currentUser = document.getElementById('username-input').value.trim();
+    if (!currentUser) return alert("請輸入名字");
+
+    const saved = localStorage.getItem('vocabMaster_' + currentUser);
+    if (saved) {
+        let oldState = JSON.parse(saved);
+        gameState.coins = oldState.coins || 100; gameState.energy = oldState.energy || 100;
+        gameState.inventory = oldState.inventory || { carrot: 0, tomato: 0, radish: 0 };
+        gameState.farmTiles = oldState.farmTiles;
+        gameState.difficulty = oldState.difficulty || "1";
+        gameState.petsOwned = oldState.petsOwned || ["pig"];
+        if (oldState.petStats) {
+            gameState.petStats = oldState.petStats;
+            if (gameState.petStats.dog) { gameState.petStats.fox = gameState.petStats.dog; delete gameState.petStats.dog; }
+        }
+        gameState.currentPet = oldState.currentPet || "pig";
+        if (gameState.currentPet === 'dog') gameState.currentPet = 'fox';
+        gameState.isPro = oldState.isPro || false;
+        gameState.mistakes = oldState.mistakes || {};
+    } else {
+        gameState.farmTiles = Array.from({length: ROWS}, () => Array.from({length: COLS}, () => ({ plant: false, type: null, progress: 0 })));
+    }
+
+    document.getElementById('in-game-difficulty').value = gameState.difficulty;
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('game-container').classList.remove('hidden');
+    resize(); updateUI(); loadQuestion(); requestAnimationFrame(tick);
+}
+
+function saveGame() { if (currentUser) localStorage.setItem('vocabMaster_' + currentUser, JSON.stringify(gameState)); }
+setInterval(saveGame, 5000); 
+
+function showPaywall(msg) {
+    document.getElementById('paywall-msg').innerText = msg;
+    document.getElementById('paywall-modal').classList.remove('hidden');
+}
+
+function closePaywall() {
+    document.getElementById('paywall-modal').classList.add('hidden');
+    document.getElementById('license-input').value = "";
+}
+
+async function verifyLicenseKey() {
+    const inputElem = document.getElementById('license-input');
+    const btnElem = document.querySelector('.unlock-btn');
+    const rawInput = inputElem.value;
+    const key = rawInput.replace(/\s+/g, '').toUpperCase();
+
+    if (!key) { alert("請輸入金鑰！"); return; }
+
+    // 🔥 已更新為你的正式網址 🔥
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxJm3AvAS-vwd841tmJVwPMt7VT9ufh_maHenZGTj_XVQ10gRNskiA6k2ptJiekNgp_/exec"; 
+
+    btnElem.innerText = "⏳ 雲端連線驗證中...";
+    btnElem.disabled = true;
+
+    try {
+        const response = await fetch(`${SCRIPT_URL}?key=${key}&user=${currentUser}`);
+        const data = await response.json();
+
+        if (data.success) {
+            gameState.isPro = true;
+            saveGame(); updateUI(); closePaywall();
+            alert("🎉 恭喜！金鑰驗證成功！您已永久解鎖 VocabMaster 專業版！");
+        } else {
+            alert(data.message);
+        }
+    } catch (error) {
+        alert("連線驗證失敗，請檢查網路連線或稍後再試。");
+    } finally {
+        btnElem.innerText = "驗證並解鎖";
+        btnElem.disabled = false;
+    }
+}
+
+function changeDifficulty() { 
+    const selector = document.getElementById('in-game-difficulty');
+    const selectedValue = selector.value;
+    
+    if (selectedValue !== "1" && !gameState.isPro) {
+        showPaywall("Level 3~6 的中高級單字庫為「專業版專屬」喔！");
+        selector.value = gameState.difficulty; 
+        return;
+    }
+    
+    gameState.difficulty = selectedValue; 
+    saveGame(); loadQuestion(); 
+}
+
+function getPetSize(lv) { return Math.min(TILE_SIZE * 1.5, TILE_SIZE * 0.8 + (lv - 1) * (TILE_SIZE * 0.05)); }
+function getPetSpeed(lv) { return Math.min(0.08, 0.02 + (lv - 1) * 0.002); }
+
+function getCoinReward() {
+    let base = 20; 
+    gameState.petsOwned.forEach(id => {
+        let lv = gameState.petStats[id].lv;
+        if (id === 'pig') base += (lv - 1) * 2;
+        if (id === 'fox') base += 10 + (lv - 1) * 4;
+        if (id === 'cat') base += 20 + (lv - 1) * 6;
+    });
+    return base;
+}
+
+function loadQuestion() {
+    let pool = globalVocab;
+    if (gameState.difficulty !== "all") {
+        let d = parseInt(gameState.difficulty);
+        pool = globalVocab.filter(v => v.lv >= d && v.lv <= d + 1);
+        if (pool.length < 4) pool = globalVocab;
+    }
+    
+    let totalWeight = pool.reduce((sum, word) => sum + word.weight, 0);
+    let randomNum = Math.random() * totalWeight;
+    for (let word of pool) { if (randomNum < word.weight) { currentWord = word; break; } randomNum -= word.weight; }
+
+    document.getElementById('word-display').innerText = currentWord.w;
+    
+    let hintElem = document.getElementById('reward-hint');
+    if(hintElem) hintElem.innerText = `答對獎勵：💰 ${getCoinReward()}`;
+    
+    const grid = document.getElementById('options-grid'); grid.innerHTML = '';
+    let opts = [currentWord.c];
+    let safetyCounter = 0; 
+    while(opts.length < 4 && safetyCounter < 100) {
+        let r = globalVocab[Math.floor(Math.random() * globalVocab.length)].c;
+        if(!opts.includes(r)) opts.push(r);
+        safetyCounter++;
+    }
+    
+    opts.sort(() => Math.random() - 0.5).forEach(o => {
+        const b = document.createElement('button'); b.innerText = o;
+        b.onclick = () => {
+            if(o === currentWord.c) {
+                gameState.coins += getCoinReward(); 
+                gameState.energy = Math.min(100, gameState.energy + 30);
+                currentWord.weight = Math.max(1, currentWord.weight - 3); 
+                gameState.farmTiles.forEach(r => r.forEach(t => { 
+                    if(t.plant) {
+                        let factor = SEED_DATA[t.type].growthFactor || 1;
+                        t.progress = Math.min(100, t.progress + (15 * factor));
+                    }
+                }));
+                saveGame(); loadQuestion();
+            } else {
+                gameState.energy = Math.max(0, gameState.energy - 10);
+                currentWord.weight += 10; 
+                
+                // 🔥 記錄錯題時加入 lv (等級) 🔥
+                if (!gameState.mistakes[currentWord.w]) {
+                    gameState.mistakes[currentWord.w] = { 
+                        w: currentWord.w, 
+                        c: currentWord.c, 
+                        lv: currentWord.lv, // 保存單字等級
+                        count: 0 
+                    };
+                }
+                gameState.mistakes[currentWord.w].count += 1;
+                saveGame();
+            }
+        };
+        grid.appendChild(b);
+    });
+}
+
+function openReviewArea() {
+    document.getElementById('review-screen').classList.remove('hidden');
+    renderReviewList();
+}
+
+function closeReviewArea() {
+    document.getElementById('review-screen').classList.add('hidden');
+}
+
+function renderReviewList() {
+    const listContainer = document.getElementById('review-list');
+    let mistakesArr = Object.values(gameState.mistakes);
+
+    if (mistakesArr.length === 0) {
+        listContainer.innerHTML = "<div class='empty-review'>🎉 太棒了！<br>你的錯題本是空的！<br>繼續保持，去農場答題吧！</div>";
+        return;
+    }
+
+    mistakesArr.sort((a, b) => b.count - a.count);
+
+    let html = "";
+    mistakesArr.forEach(m => {
+        let safeWord = encodeURIComponent(m.w);
+        html += `
+        <div class="review-item">
+            <div class="review-word-info">
+                <div class="review-word">
+                    ${m.w} 
+                    <span style="font-size: 0.6em; background: #3498db; color: white; padding: 2px 6px; border-radius: 4px; margin-left: 5px; vertical-align: middle;">Lv.${m.lv || '?'}</span>
+                    <span class="error-count-badge">錯了 ${m.count} 次</span>
+                </div>
+                <div class="review-mean">${m.c}</div>
+            </div>
+            <button class="master-btn" onclick="masterWord('${safeWord}')">✅ 複習熟悉</button>
+        </div>
+        `;
+    });
+    listContainer.innerHTML = html;
+}
+
+function masterWord(safeWord) {
+    let wordKey = decodeURIComponent(safeWord);
+    if (gameState.mistakes[wordKey]) {
+        delete gameState.mistakes[wordKey];
+        gameState.coins += 50;
+        gameState.energy = Math.min(100, gameState.energy + 50);
+        gameState.inventory['radish'] = (gameState.inventory['radish'] || 0) + 1; 
+        saveGame();
+        updateUI();
+        renderReviewList();
+        document.getElementById('marquee-msg').innerText = `✨ 恭喜克服單字 [${wordKey}]！獲得 💰50金幣 + ⚡50活力 + 🧅甜菜種子x1！`;
+    }
+}
+
+function moveAllPets() {
+    gameState.petsOwned.forEach(petId => {
+        let p = activePets[petId];
+        let stat = gameState.petStats[petId];
+        let currentSpeed = getPetSpeed(stat.lv);
+        if (gameState.energy >= 90) currentSpeed *= 3.0; 
+        if (gameState.energy <= 0) { p.dir = 'Dead'; return; }
+        if (p.state === 'idle') {
+            p.timer--;
+            if (p.timer <= 0) {
+                p.targetX = Math.random() * (COLS - 1);
+                p.targetY = Math.random() * (ROWS - 1);
+                p.state = 'walk';
+            }
+        } else {
+            let dx = p.targetX - p.x, dy = p.targetY - p.y;
+            let dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist > currentSpeed) {
+                p.x += (dx/dist) * currentSpeed; p.y += (dy/dist) * currentSpeed;
+                if (Math.abs(dx) > Math.abs(dy)) p.dir = dx > 0 ? 'Right' : 'Left'; else p.dir = dy > 0 ? 'Down' : 'Up';
+                checkPetCollision(p);
+            } else { p.state = 'idle'; p.timer = Math.random() * 80 + 30; }
+        }
+    });
+}
+
+function checkPetCollision(p) {
+    let tileX = Math.floor(p.x + 0.5);
+    let tileY = Math.floor(p.y + 0.5);
+    if(gameState.farmTiles[tileY] && gameState.farmTiles[tileY][tileX]) {
+        let t = gameState.farmTiles[tileY][tileX];
+        if (t.plant) {
+            let boost = (gameState.energy >= 90) ? 1.5 : 0.5;
+            if (t.progress < 100) { t.progress += boost; } 
+            else if (t.progress >= 100) { 
+                gameState.inventory[t.type] = (gameState.inventory[t.type] || 0) + 1; 
+                t.plant = false; t.type = null; t.progress = 0;
+            }
+        }
+    }
+}
+
+function handleInteraction(e) {
+    e.preventDefault(); 
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const x = Math.floor((clientX - rect.left - offsetX) / TILE_SIZE);
+    const y = Math.floor((clientY - rect.top - offsetY) / TILE_SIZE);
+    if(x >= 0 && x < COLS && y >= 0 && y < ROWS && gameState.farmTiles[y] && gameState.farmTiles[y][x]) {
+        let t = gameState.farmTiles[y][x];
+        if (t.plant && t.progress >= 100) {
+            gameState.inventory[t.type] = (gameState.inventory[t.type] || 0) + 1; t.plant = false; t.type = null; t.progress = 0;
+        } else if (!t.plant && gameState.coins >= SEED_DATA[currentSeed].cost) {
+            gameState.coins -= SEED_DATA[currentSeed].cost; t.plant = true; t.type = currentSeed; t.progress = 0;
+        }
+        updateUI(); saveGame();
+    }
+}
+canvas.addEventListener('mousedown', handleInteraction);
+canvas.addEventListener('touchstart', handleInteraction, {passive: false});
+
+function tick() {
+    gameState.energy = Math.max(0, gameState.energy - 0.04);
+    moveAllPets(); draw(); updateUI(); requestAnimationFrame(tick);
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    gameState.farmTiles.forEach((row, y) => row.forEach((tile, x) => {
+        let px = offsetX + x * TILE_SIZE;
+        let py = offsetY + y * TILE_SIZE;
+        if(images.grass && images.grass.isLoaded) ctx.drawImage(images.grass, px, py, TILE_SIZE, TILE_SIZE);
+        if(images.soil && images.soil.isLoaded) ctx.drawImage(images.soil, px, py, TILE_SIZE, TILE_SIZE);
+        if(tile.plant) {
+            let imgKey = tile.progress >= 100 ? tile.type+'_02' : tile.type+'_01';
+            if(images[imgKey] && images[imgKey].isLoaded) {
+                ctx.drawImage(images[imgKey], px, py, TILE_SIZE, TILE_SIZE);
+            } else {
+                ctx.font = (TILE_SIZE/2) + "px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                if(tile.progress >= 100) {
+                    let e = tile.type === 'tomato' ? "🍅" : (tile.type === 'radish' ? "🧅" : "🥕");
+                    ctx.fillText(e, px + TILE_SIZE/2, py + TILE_SIZE/2);
+                }
+            }
+            if(tile.progress < 100) {
+                ctx.fillStyle = gameState.energy >= 90 ? "#f1c40f" : "#4caf50";
+                ctx.fillRect(px + TILE_SIZE*0.15, py + TILE_SIZE*0.8, (tile.progress/100)*(TILE_SIZE*0.7), TILE_SIZE*0.08);
+            }
+        }
+    }));
+    let sortedPets = [...gameState.petsOwned];
+    sortedPets.sort((a, b) => activePets[a].y - activePets[b].y); 
+    sortedPets.forEach(petId => {
+        let p = activePets[petId];
+        let pSize = getPetSize(gameState.petStats[petId].lv);
+        let drawX = offsetX + p.x * TILE_SIZE;
+        let drawY = offsetY + p.y * TILE_SIZE;
+        let imgKey = petId + "_" + p.dir;
+        if(images[imgKey] && images[imgKey].isLoaded) {
+            ctx.drawImage(images[imgKey], drawX - (pSize - TILE_SIZE)/2, drawY - (pSize - TILE_SIZE), pSize, pSize);
+        } else {
+            ctx.font = (pSize/1.5) + "px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            let emoji = petId === 'cat' ? "🐱" : (petId === 'fox' ? "🦊" : "🐷");
+            ctx.fillText(emoji, drawX + TILE_SIZE/2, drawY + TILE_SIZE/2);
+        }
+    });
+}
+
+function feedPig(type) {
+    let cp = gameState.currentPet;
+    let stat = gameState.petStats[cp];
+    if (gameState.inventory[type] > 0) {
+        if (gameState.energy <= 0) gameState.energy = 20; 
+        gameState.inventory[type]--;
+        stat.exp += SEED_DATA[type].exp;
+        let expNeeded = stat.lv * 100;
+        while (stat.exp >= expNeeded) {
+            stat.lv++; stat.exp -= expNeeded; gameState.energy = 100;
+            updateUI();
+        }
+        updateUI(); saveGame(); togglePanel('inventory');
+    }
+}
+
+function sellPlant(type) {
+    if (gameState.inventory[type] > 0) {
+        gameState.inventory[type]--;
+        gameState.coins += SEED_DATA[type].sellPrice;
+        updateUI(); saveGame(); togglePanel('inventory'); 
+    }
+}
+
+function sellAllOf(type) {
+    let count = gameState.inventory[type] || 0;
+    if (count > 0) {
+        gameState.coins += count * SEED_DATA[type].sellPrice;
+        gameState.inventory[type] = 0;
+        updateUI(); saveGame(); togglePanel('inventory'); 
+    }
+}
+
+function autoHarvest() {
+    let count = 0;
+    gameState.farmTiles.forEach(r => r.forEach(t => {
+        if(t.plant && t.progress >= 100) {
+            gameState.inventory[t.type] = (gameState.inventory[t.type] || 0) + 1;
+            t.plant = false; t.type = null; t.progress = 0;
+            count++;
+        }
+    }));
+    if(count > 0) { updateUI(); saveGame(); togglePanel('inventory'); }
+}
+
+function autoPlant() {
+    let cost = SEED_DATA[currentSeed].cost;
+    let emptyTiles = [];
+    for(let y=0; y<ROWS; y++) {
+        for(let x=0; x<COLS; x++) {
+            if(!gameState.farmTiles[y][x].plant) emptyTiles.push({x: x, y: y});
+        }
+    }
+    emptyTiles.sort(() => Math.random() - 0.5);
+    let count = 0;
+    for(let i=0; i<emptyTiles.length; i++) {
+        if (gameState.coins >= cost) {
+            gameState.coins -= cost;
+            let t = gameState.farmTiles[emptyTiles[i].y][emptyTiles[i].x];
+            t.plant = true; t.type = currentSeed; t.progress = 0;
+            count++;
+        } else { break; }
+    }
+    if(count > 0) { updateUI(); saveGame(); togglePanel('shop'); }
+}
+
+function equipSeed(type) { currentSeed = type; updateUI(); togglePanel('shop'); }
+function switchPet(petId) { gameState.currentPet = petId; updateUI(); togglePanel(); saveGame(); }
+
+function buyPet(petId) {
+    if (petId === 'cat' && !gameState.isPro) {
+        showPaywall("解鎖最強寵物「比比拉布」是專業版專屬福利喔！");
+        togglePanel(); 
+        return;
+    }
+    let cost = PET_DATA[petId].cost;
+    if (gameState.coins >= cost) {
+        gameState.coins -= cost;
+        gameState.petsOwned.push(petId);
+        switchPet(petId); loadQuestion(); 
+    } else {
+        alert("金幣不足！需要 💰" + cost);
+    }
+}
+
+function togglePanel(type) {
+    const p = document.getElementById('floating-panel');
+    if (!type) { p.classList.add('hidden'); return; }
+    p.classList.remove('hidden');
+    if (type === 'inventory') {
+        document.getElementById('panel-title').innerText = '背包：' + PET_DATA[gameState.currentPet].title;
+        let invHTML = `<div style="display:flex; gap:10px; margin-bottom:10px; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+            <button onclick="autoHarvest()" style="flex:1; background:#9b59b6; padding:10px; border-radius:8px; color:white; font-weight:bold; cursor:pointer; border:none;">🚜 一鍵收成</button>
+        </div>`;
+        let hasItem = false;
+        for (let key in SEED_DATA) {
+            let count = gameState.inventory[key] || 0;
+            if (count > 0) { 
+                hasItem = true;
+                invHTML += `<div class="shop-item" style="flex-wrap: wrap; margin-bottom: 5px; padding-bottom: 10px; border-bottom: 1px dashed #ccc;">
+                    <span style="width: 100%; font-weight: bold; margin-bottom: 8px; display: block;">${SEED_DATA[key].name} x ${count}</span>
+                    <div style="display: flex; gap: 5px; width: 100%;">
+                        <button onclick="feedPig('${key}')" style="background:#8bc34a; flex: 1.2;">餵食</button>
+                        <button onclick="sellPlant('${key}')" style="background:#f39c12; flex: 1;">賣1</button>
+                        <button onclick="sellAllOf('${key}')" style="background:#e74c3c; flex: 1;">全賣</button>
+                    </div>
+                </div>`;
+            }
+        }
+        document.getElementById('panel-body').innerHTML = hasItem ? invHTML : invHTML + "<p style='text-align:center; color:#777;'>背包空空的</p>";
+    } else if (type === 'shop') {
+        document.getElementById('panel-title').innerText = '種子商城';
+        let shopHTML = `<div style="margin-bottom:10px; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+            <button onclick="autoPlant()" style="width:100%; background:#27ae60; padding:12px; border-radius:8px; color:white; font-weight:bold; cursor:pointer; border:none; font-size:1em;">🌱 隨機一鍵播種</button>
+        </div>`;
+        for (let key in SEED_DATA) {
+            let seed = SEED_DATA[key];
+            let isUnlocked = gameState.petStats.pig.lv >= seed.unlockLv; 
+            shopHTML += `<div class="shop-item" style="padding: 5px 0;"><span>${seed.name} (💰${seed.cost}) <br><small>${isUnlocked ? '' : `神豬 Lv.${seed.unlockLv} 解鎖`}</small></span><button onclick="equipSeed('${seed.id}')" ${!isUnlocked?'disabled':''}>${isUnlocked ? (currentSeed===key ? '裝備中' : '裝備') : '未解鎖'}</button></div>`;
+        }
+        document.getElementById('panel-body').innerHTML = shopHTML;
+    } else if (type === 'pet') {
+        document.getElementById('panel-title').innerText = '寵物招募';
+        let petHTML = "";
+        for (let key in PET_DATA) {
+            let pData = PET_DATA[key];
+            let isOwned = gameState.petsOwned.includes(key);
+            let isCurrent = gameState.currentPet === key;
+            if (isOwned) {
+                petHTML += `<div class="shop-item" style="background: ${isCurrent ? '#e8f5e9' : 'transparent'};"><span style="font-weight:bold;">${pData.title} <br><small>Lv.${gameState.petStats[key].lv}</small></span><button onclick="switchPet('${key}')" ${isCurrent?'disabled':''} style="background: ${isCurrent ? '#999' : '#3498db'}">${isCurrent ? '指定' : '選擇'}</button></div>`;
+            } else {
+                let costText = (key === 'cat' && !gameState.isPro) ? "🔒 PRO專屬" : `💰${pData.cost}`;
+                let btnColor = (key === 'cat' && !gameState.isPro) ? "#95a5a6" : "#e74c3c";
+                petHTML += `<div class="shop-item" style="background: #fdf2e9;"><span style="font-weight:bold;">${pData.title} <br><small>${pData.desc}</small></span><button onclick="buyPet('${key}')" style="background: ${btnColor}">${costText}</button></div>`;
+            }
+        }
+        document.getElementById('panel-body').innerHTML = petHTML;
+    }
+}
+
+function updateUI() {
+    document.getElementById('coin-count').innerText = Math.floor(gameState.coins);
+    if (gameState.isPro) { document.getElementById('pro-badge').classList.remove('hidden'); } else { document.getElementById('pro-badge').classList.add('hidden'); }
+    let energyFill = document.getElementById('energy-fill');
+    energyFill.style.width = gameState.energy + "%";
+    if (gameState.energy >= 90) { energyFill.style.background = "#f1c40f"; energyFill.style.boxShadow = "0 0 10px #f1c40f"; } else { energyFill.style.background = "#e67e22"; energyFill.style.boxShadow = "none"; }
+    const energyLabel = document.querySelector('.energy-panel .label');
+    if (energyLabel) { energyLabel.innerHTML = `寵物活力：<span id="energy-num">${Math.floor(gameState.energy)}</span>%`; }
+    let cp = gameState.currentPet;
+    let stat = gameState.petStats[cp];
+    document.getElementById('exp-fill').style.width = (stat.exp / (stat.lv * 100) * 100) + "%";
+    document.getElementById('pig-lv').innerText = stat.lv;
+    document.getElementById('player-name-display').innerText = currentUser + " 的 " + PET_DATA[cp].title;
+    document.getElementById('current-seed-name').innerText = SEED_DATA[currentSeed].name;
+    let petImgKey = cp + "_Down";
+    if (!images[petImgKey] || !images[petImgKey].isLoaded) petImgKey = "pig_Down";
+    if (images[petImgKey] && images[petImgKey].isLoaded) { document.getElementById('pig-img').src = images[petImgKey].src; document.getElementById('pig-img').style.display = 'block'; }
+}
+
+loadAssets();

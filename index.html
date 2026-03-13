@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>字彙領主 VocabLord - 7000單字絕對記憶農場</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="login-screen">
+        <div class="login-box">
+            <img src="assets/Characters/Pig_Down.png" class="login-logo" id="login-pet-img" onerror="this.src=''">
+            <h1 class="epic-title">《字彙領主 VocabLord》<br><span class="subtitle">7000 單字絕對記憶農場</span></h1>
+            
+            <ul class="game-highlights">
+                <li>🧠 <b>AI 智慧演算法：</b>動態追蹤弱點，精準推播你不熟悉的單字</li>
+                <li>⚔️ <b>農莊經營養成：</b>答題賺金幣，解鎖專屬超萌寵物與百萬農產</li>
+                <li>🔥 <b>錯題試煉系統：</b>獨立錯題本，消滅錯誤領取高額寶石獎勵</li>
+            </ul>
+
+            <input type="text" id="username-input" placeholder="請輸入你的勇者姓名">
+            <button onclick="login()" class="start-btn">開始特訓</button>
+            
+            <div class="author-tag">英文教育專家、家教名師 Ryan 研發出品</div>
+        </div>
+    </div>
+
+    <div id="game-container" class="hidden">
+        <div id="marquee-container">
+            <img src="assets/Characters/Pig_Right.png" id="marquee-pig" onerror="this.style.display='none'">
+            <div class="marquee-scroll">
+                <span id="marquee-msg">🎮 【生態園區】神豬、我的刀盾、比比拉布 會同時在農場巡邏！點擊頭像切換要餵食的對象，把它們通通練滿吧！</span>
+            </div>
+        </div>
+
+        <div id="game-body">
+            <aside id="sidebar">
+                <div class="user-header">
+                    <div class="pig-avatar-container" onclick="togglePanel('pet')">
+                        <img src="assets/Characters/Pig_Down.png" id="pig-img" onerror="this.style.display='none'">
+                        <div id="feed-hint">切換寵物</div>
+                    </div>
+                    <div class="user-info">
+                        <div class="lv-badge"><span id="player-name-display">載入中...</span> <span id="pro-badge" class="hidden">PRO</span> Lv.<span id="pig-lv">1</span></div>
+                        <div class="exp-bar-bg"><div id="exp-fill"></div></div>
+                        <div class="money">💰 <span id="coin-count">100</span></div>
+                    </div>
+                </div>
+
+                <div id="quiz-panel">
+                    <div class="tag">
+                        難度切換：
+                        <select id="in-game-difficulty" onchange="changeDifficulty()">
+                            <option value="1">Level 1-2 (初級)</option>
+                            <option value="3">Level 3-4 (中級)</option>
+                            <option value="5">Level 5-6 (高級)</option>
+                            <option value="all">混合全單字</option>
+                        </select>
+                        <br><span style="color:#f39c12; margin-top:5px; display:inline-block;" id="reward-hint">答對獎勵：💰 20</span>
+                    </div>
+                    <h1 id="word-display">Ready?</h1>
+                    <div id="options-grid"></div>
+                </div>
+
+                <div class="energy-panel">
+                    <div class="label">寵物活力：<span id="energy-num">100</span>%</div>
+                    <div class="bar-bg"><div id="energy-fill"></div></div>
+                    <p class="warning-text">目前裝備：<span id="current-seed-name">🥕 蘿蔔</span></p>
+                </div>
+            </aside>
+
+            <main id="farm-viewport">
+                <canvas id="gameCanvas"></canvas>
+                <div id="ui-overlays">
+                    <div class="overlay-btn" onclick="openReviewArea()" style="background: #c0392b; box-shadow: 0 4px 0 #922b21;">📖 錯題複習區</div>
+                    <div class="overlay-btn" onclick="togglePanel('inventory')">🎒 背包管理</div>
+                    <div class="overlay-btn" onclick="togglePanel('shop')">🛒 種子商城</div>
+                </div>
+                <div id="floating-panel" class="hidden">
+                    <div class="panel-header">
+                        <span id="panel-title">面板</span>
+                        <button onclick="togglePanel()">✖</button>
+                    </div>
+                    <div id="panel-body"></div>
+                </div>
+                
+                <div id="review-screen" class="hidden">
+                    <div class="review-header">
+                        <h2>📖 我的錯題本</h2>
+                        <button class="close-review-btn" onclick="closeReviewArea()">返回農場 ✖</button>
+                    </div>
+                    <div class="review-info">將錯誤單字背熟並消除，可獲得 💰50 + ⚡50活力 + 🧅甜菜種子x1 的豐厚獎勵！</div>
+                    <div id="review-list"></div>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <div id="paywall-modal" class="hidden">
+        <div class="paywall-box">
+            <button class="close-btn" onclick="closePaywall()">✖</button>
+            <h3 style="color: #f39c12; margin-top: 0; font-size: 1.5em;">🌟 升級專業版 (Pro)</h3>
+            <p id="paywall-msg" style="font-weight: bold; color: #333; line-height: 1.5;"></p>
+            
+            <ul class="pro-features">
+                <li>解鎖 Level 3 ~ 6 所有進階單字</li>
+                <li>解鎖最強寵物「比比拉布」招募權限</li>
+                <li>無限制永久保存學習進度</li>
+            </ul>
+
+            <div class="line-contact">
+                <p style="margin-bottom: 5px; font-weight: bold; color: #2c3e50;">請加入官方 LINE 獲取解鎖金鑰</p>
+                <img src="assets/line_qr.png" alt="LINE QR Code" onerror="this.src='https://via.placeholder.com/150x150?text=LINE+QR'" style="width: 130px; border-radius: 10px; margin: 5px 0; border: 3px solid #2ecc71;">
+                <p style="margin: 5px 0;">LINE ID: <b style="color: #27ae60; font-size: 1.2em;">@bear20020228</b></p>
+                <p style="font-size: 0.85em; color: #7f8c8d; margin-top: 0;">(支援 銀行匯款 / LINE Pay，免手續費)</p>
+            </div>
+
+            <div style="border-top: 2px dashed #ddd; margin: 15px 0;"></div>
+
+            <input type="text" id="license-input" placeholder="已付款？請在此輸入金鑰 (例: EASON111)">
+            <button onclick="verifyLicenseKey()" class="unlock-btn">驗證並解鎖</button>
+        </div>
+    </div>
+
+    <script src="vocab.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
