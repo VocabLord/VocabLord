@@ -15,7 +15,9 @@ let gameState = {
     petsOwned: ["pig"], 
     petStats: { pig: { lv: 1, exp: 0 }, fox: { lv: 1, exp: 0 }, cat: { lv: 1, exp: 0 } },
     isPro: false,
-    mistakes: {} 
+    mistakes: {},
+    wordStats: {}, // 🔥 新增：追蹤答對/答錯次數 🔥
+    graduated: {}  // 🔥 新增：已畢業單字庫 🔥
 };
 
 let activePets = {
@@ -68,23 +70,17 @@ function resize() {
 }
 window.addEventListener('resize', resize);
 
-// 🔥 頁面載入時，自動填入上次登入的帳號 🔥
 document.addEventListener("DOMContentLoaded", () => {
     const lastUser = localStorage.getItem('last_user_vocablord');
-    if (lastUser) {
-        document.getElementById('username-input').value = lastUser;
-    }
+    if (lastUser) { document.getElementById('username-input').value = lastUser; }
 });
 
-// 🔥 新增：開關教學 Modal 🔥
 function showTutorial() { document.getElementById('tutorial-modal').classList.remove('hidden'); }
 function closeTutorial() { document.getElementById('tutorial-modal').classList.add('hidden'); }
 
 function login() {
     currentUser = document.getElementById('username-input').value.trim();
     if (!currentUser) return alert("請輸入名字");
-    
-    // 🔥 記錄登入帳號 🔥
     localStorage.setItem('last_user_vocablord', currentUser);
     
     const saved = localStorage.getItem('vocabMaster_' + currentUser);
@@ -93,6 +89,10 @@ function login() {
         Object.assign(gameState, oldState);
         if (oldState.petStats && oldState.petStats.dog) { gameState.petStats.fox = oldState.petStats.dog; delete gameState.petStats.dog; }
         if (gameState.currentPet === 'dog') gameState.currentPet = 'fox';
+        
+        // 確保舊玩家也有新的畢業系統數據庫
+        gameState.wordStats = oldState.wordStats || {};
+        gameState.graduated = oldState.graduated || {};
     } else {
         gameState.farmTiles = Array.from({length: ROWS}, () => Array.from({length: COLS}, () => ({ plant: false, type: null, progress: 0 })));
     }
@@ -144,33 +144,68 @@ function getCoinReward() {
 }
 
 function loadQuestion() {
-    let pool = globalVocab;
+    // 🔥 過濾掉已經畢業的單字 🔥
+    let pool = globalVocab.filter(v => !gameState.graduated[v.w]);
+    
     if (gameState.difficulty !== "all") {
         let d = parseInt(gameState.difficulty);
-        pool = globalVocab.filter(v => v.lv >= d && v.lv <= d + 1);
-        if (pool.length < 4) pool = globalVocab;
+        pool = pool.filter(v => v.lv >= d && v.lv <= d + 1);
     }
+    
+    // 如果該難度全部都畢業了，防呆處理
+    if (pool.length < 4) {
+        document.getElementById('marquee-msg').innerText = `🏆 太神啦！這個難度的單字你已經全部畢業了！現在系統將為你抓取複習題庫。`;
+        pool = globalVocab.filter(v => v.lv >= parseInt(gameState.difficulty) && v.lv <= parseInt(gameState.difficulty) + 1);
+        if (pool.length < 4) pool = globalVocab; // 終極防呆
+    }
+
     let totalWeight = pool.reduce((sum, word) => sum + word.weight, 0);
     let randomNum = Math.random() * totalWeight;
     for (let word of pool) { if (randomNum < word.weight) { currentWord = word; break; } randomNum -= word.weight; }
+    
     document.getElementById('word-display').innerText = currentWord.w;
     document.getElementById('reward-hint').innerText = `答對獎勵：💰 ${getCoinReward()}`;
     const grid = document.getElementById('options-grid'); grid.innerHTML = '';
+    
     let opts = [currentWord.c];
     while(opts.length < 4) {
         let r = globalVocab[Math.floor(Math.random() * globalVocab.length)].c;
         if(!opts.includes(r)) opts.push(r);
     }
+    
     opts.sort(() => Math.random() - 0.5).forEach(o => {
         const b = document.createElement('button'); b.innerText = o;
         b.onclick = () => {
+            // 初始化該單字的狀態紀錄
+            if (!gameState.wordStats[currentWord.w]) {
+                gameState.wordStats[currentWord.w] = { correct: 0, wrong: 0, consecutive: 0 };
+            }
+
             if(o === currentWord.c) {
-                gameState.coins += getCoinReward(); gameState.energy = Math.min(100, gameState.energy + 30);
+                // 答對邏輯
+                gameState.coins += getCoinReward(); 
+                gameState.energy = Math.min(100, gameState.energy + 30);
                 currentWord.weight = Math.max(1, currentWord.weight - 3); 
+                
+                gameState.wordStats[currentWord.w].correct += 1;
+                gameState.wordStats[currentWord.w].consecutive += 1;
+
+                // 🔥 自動畢業判定：連續答對 5 次 🔥
+                if (gameState.wordStats[currentWord.w].consecutive >= 5) {
+                    gameState.graduated[currentWord.w] = { w: currentWord.w, c: currentWord.c, lv: currentWord.lv };
+                    document.getElementById('marquee-msg').innerText = `🎓 恭喜！單字 [${currentWord.w}] 連續答對 5 次，已移至「已畢業單字區」！`;
+                }
+
                 gameState.farmTiles.forEach(r => r.forEach(t => { if(t.plant) { let f = SEED_DATA[t.type].growthFactor || 1; t.progress = Math.min(100, t.progress + (15 * f)); } }));
                 saveGame(); loadQuestion();
             } else {
-                gameState.energy = Math.max(0, gameState.energy - 10); currentWord.weight += 10; 
+                // 答錯邏輯
+                gameState.energy = Math.max(0, gameState.energy - 10); 
+                currentWord.weight += 10; 
+                
+                gameState.wordStats[currentWord.w].wrong += 1;
+                gameState.wordStats[currentWord.w].consecutive = 0; // 答錯一次，連續次數直接歸零
+
                 if (!gameState.mistakes[currentWord.w]) { gameState.mistakes[currentWord.w] = { w: currentWord.w, c: currentWord.c, lv: currentWord.lv, count: 0 }; }
                 gameState.mistakes[currentWord.w].count += 1; saveGame();
             }
@@ -179,6 +214,7 @@ function loadQuestion() {
     });
 }
 
+// 錯題區功能
 function openReviewArea() { document.getElementById('review-screen').classList.remove('hidden'); renderReviewList(); }
 function closeReviewArea() { document.getElementById('review-screen').classList.add('hidden'); }
 function renderReviewList() {
@@ -194,7 +230,6 @@ function renderReviewList() {
             <button class="master-btn" onclick="masterWord('${encodeURIComponent(m.w)}')">✅ 複習熟悉</button>
         </div>`).join('');
 }
-
 function masterWord(sw) {
     let wk = decodeURIComponent(sw);
     if (gameState.mistakes[wk]) {
@@ -203,6 +238,36 @@ function masterWord(sw) {
         gameState.inventory['radish'] = (gameState.inventory['radish'] || 0) + 1; 
         saveGame(); updateUI(); renderReviewList();
         document.getElementById('marquee-msg').innerText = `✨ 恭喜克服 [${wk}]！獲得獎勵！`;
+    }
+}
+
+// 🔥 已畢業單字區功能 🔥
+function openGraduatedArea() { document.getElementById('graduated-screen').classList.remove('hidden'); renderGraduatedList(); }
+function closeGraduatedArea() { document.getElementById('graduated-screen').classList.add('hidden'); }
+function renderGraduatedList() {
+    const list = document.getElementById('graduated-list');
+    let arr = Object.values(gameState.graduated);
+    if (arr.length === 0) { list.innerHTML = "<div class='empty-review'>還沒有畢業的單字喔！<br>連續答對同一個單字 5 次即可畢業！</div>"; return; }
+    
+    list.innerHTML = arr.map(m => `
+        <div class="review-item graduated-item">
+            <div class="review-word-info">
+                <div class="review-word">${m.w} <span style="font-size: 0.6em; background: #3498db; color: white; padding: 2px 6px; border-radius: 4px; margin-left: 5px;">Lv.${m.lv || '?'}</span> <span class="success-badge">連續答對 5 次</span></div>
+                <div class="review-mean">${m.c}</div>
+            </div>
+            <button class="revive-btn" onclick="reviveWord('${encodeURIComponent(m.w)}')">🔄 重新學習</button>
+        </div>`).join('');
+}
+function reviveWord(sw) {
+    let wk = decodeURIComponent(sw);
+    if (gameState.graduated[wk]) {
+        delete gameState.graduated[wk]; // 移出畢業區
+        if (gameState.wordStats[wk]) {
+            gameState.wordStats[wk].consecutive = 0; // 連續次數歸零
+        }
+        saveGame();
+        renderGraduatedList();
+        document.getElementById('marquee-msg').innerText = `🔄 單字 [${wk}] 已重新加入題庫池中！`;
     }
 }
 

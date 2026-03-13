@@ -12,10 +12,12 @@
             <img src="assets/Characters/Pig_Down.png" class="login-logo" id="login-pet-img" onerror="this.src=''">
             <h1 class="epic-title">《字彙領主 VocabLord》<br><span class="subtitle">7000 單字絕對記憶農場</span></h1>
             
+            <div class="device-hint">📱 建議使用手機或平板遊玩，體驗更佳</div>
+            
             <ul class="game-highlights">
                 <li>🧠 <b>AI 智慧演算法：</b>動態追蹤弱點，精準推播你不熟悉的單字</li>
                 <li>⚔️ <b>農莊經營養成：</b>答題賺金幣，解鎖專屬超萌寵物與百萬農產</li>
-                <li>🔥 <b>錯題試煉系統：</b>獨立錯題本，消滅錯誤領取高額寶石獎勵</li>
+                <li>🎓 <b>成就感滿滿：</b>連續答對單字將自動「畢業」，題庫越學越精華</li>
             </ul>
 
             <input type="text" id="username-input" placeholder="請輸入你的勇者姓名">
@@ -34,10 +36,10 @@
             <button class="close-btn" onclick="closeTutorial()">✖</button>
             <h3>📖 遊戲新手指南</h3>
             <div class="tutorial-text">
-                <p><b>1. 努力答題：</b>答對單字可獲得金幣與寵物活力，答錯則扣除活力並記錄在錯題本。</p>
-                <p><b>2. 經營農場：</b>去「種子商城」買種子，點擊空地種下。⚠️ <b>植物只會因為你答對題目或寵物踩踏而生長，掛網是沒用的喔！</b></p>
-                <p><b>3. 狂熱模式：</b>當活力達 90% 以上，寵物會爆衝，大幅加速農作生長！</p>
-                <p><b>4. 寵物升級：</b>收成植物後去「背包管理」餵食寵物，寵物升級可大幅增加答題獲得的金幣！</p>
+                <p><b>1. 努力答題：</b>答對可獲金幣與活力，答錯記錄在錯題本。</p>
+                <p><b>2. 經營農場：</b>去商城買種子種下。⚠️ <b>植物只會因為你答題或寵物踩踏生長，掛網沒用喔！</b></p>
+                <p><b>3. 狂熱模式：</b>當活力達 90% 以上，寵物會爆衝加速農作！</p>
+                <p><b>4. 單字畢業：</b>連續答對同一個單字 5 次，該單字就會自動「畢業」不再出現！</p>
                 <p><b>5. 錯題複習：</b>去「錯題複習區」消滅錯題，可獲得超豐厚獎勵！</p>
             </div>
             <button onclick="closeTutorial()" class="unlock-btn" style="margin-top: 15px; background: #27ae60; box-shadow: 0 5px 0 #1e8449;">我準備好了</button>
@@ -48,7 +50,7 @@
         <div id="marquee-container">
             <img src="assets/Characters/Pig_Right.png" id="marquee-pig" onerror="this.style.display='none'">
             <div class="marquee-scroll">
-                <span id="marquee-msg">🎮 【生態園區】神豬、我的刀盾、比比拉布 會同時在農場巡邏！點擊頭像切換要餵食的對象，把它們通通練滿吧！</span>
+                <span id="marquee-msg">🎮 【生態園區】神豬、我的刀盾、比比拉布 會同時在農場巡邏！把它們通通練滿吧！</span>
             </div>
         </div>
 
@@ -91,9 +93,10 @@
             <main id="farm-viewport">
                 <canvas id="gameCanvas"></canvas>
                 <div id="ui-overlays">
-                    <div class="overlay-btn" onclick="openReviewArea()" style="background: #c0392b; box-shadow: 0 4px 0 #922b21;">📖 錯題複習區</div>
-                    <div class="overlay-btn" onclick="togglePanel('inventory')">🎒 背包管理</div>
-                    <div class="overlay-btn" onclick="togglePanel('shop')">🛒 種子商城</div>
+                    <div class="overlay-btn" onclick="openGraduatedArea()" style="background: #8e44ad; box-shadow: 0 4px 0 #732d91;">🎓 已畢業區</div>
+                    <div class="overlay-btn" onclick="openReviewArea()" style="background: #c0392b; box-shadow: 0 4px 0 #922b21;">📖 錯題本</div>
+                    <div class="overlay-btn" onclick="togglePanel('inventory')">🎒 背包</div>
+                    <div class="overlay-btn" onclick="togglePanel('shop')">🛒 商城</div>
                 </div>
                 <div id="floating-panel" class="hidden">
                     <div class="panel-header">
@@ -106,10 +109,19 @@
                 <div id="review-screen" class="hidden">
                     <div class="review-header">
                         <h2>📖 我的錯題本</h2>
-                        <button class="close-review-btn" onclick="closeReviewArea()">返回農場 ✖</button>
+                        <button class="close-review-btn" onclick="closeReviewArea()">返回 ✖</button>
                     </div>
-                    <div class="review-info">將錯誤單字背熟並消除，可獲得 💰50 + ⚡50活力 + 🧅甜菜種子x1 的豐厚獎勵！</div>
+                    <div class="review-info">將錯誤單字背熟並消除，可獲得 💰50 + ⚡50活力 + 🧅甜菜種子 的獎勵！</div>
                     <div id="review-list"></div>
+                </div>
+
+                <div id="graduated-screen" class="hidden">
+                    <div class="review-header" style="background: #8e44ad;">
+                        <h2>🎓 已畢業單字區</h2>
+                        <button class="close-review-btn" onclick="closeGraduatedArea()">返回 ✖</button>
+                    </div>
+                    <div class="review-info" style="background: #f4ecf7; color: #8e44ad; border-bottom: 2px solid #9b59b6;">這些是你連續答對 5 次、完全掌握的單字！它們暫時不會出現在平常的測驗中。</div>
+                    <div id="graduated-list" style="flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px;"></div>
                 </div>
             </main>
         </div>
@@ -120,22 +132,18 @@
             <button class="close-btn" onclick="closePaywall()">✖</button>
             <h3 style="color: #f39c12; margin-top: 0; font-size: 1.5em;">🌟 升級專業版 (Pro)</h3>
             <p id="paywall-msg" style="font-weight: bold; color: #333; line-height: 1.5;"></p>
-            
             <ul class="pro-features">
                 <li>解鎖 Level 3 ~ 6 所有進階單字</li>
                 <li>解鎖最強寵物「比比拉布」招募權限</li>
                 <li>無限制永久保存學習進度</li>
             </ul>
-
             <div class="line-contact">
                 <p style="margin-bottom: 5px; font-weight: bold; color: #2c3e50;">請加入官方 LINE 獲取解鎖金鑰</p>
                 <img src="assets/line_qr.png" alt="LINE QR Code" onerror="this.src='https://via.placeholder.com/150x150?text=LINE+QR'" style="width: 120px; border-radius: 10px; margin: 5px 0; border: 3px solid #2ecc71;">
                 <p style="margin: 5px 0;">LINE ID: <b style="color: #27ae60; font-size: 1.2em;">bear20020228</b></p>
                 <p style="font-size: 0.85em; color: #7f8c8d; margin-top: 0;">(支援 銀行匯款 / LINE Pay)</p>
             </div>
-
             <div style="border-top: 2px dashed #ddd; margin: 15px 0;"></div>
-
             <input type="text" id="license-input" placeholder="已付款？請在此輸入金鑰">
             <button onclick="verifyLicenseKey()" class="unlock-btn">驗證並解鎖</button>
         </div>
