@@ -5204,7 +5204,7 @@ const globalVocab = [
 { w: 'conscientious (adj.)', c: '認真負責的 / 盡責的', lv: 6, weight: 10 },
 { w: 'conserve (v./n.)', c: '保護 / 保存 / 節護', lv: 6, weight: 10 },
 { w: 'consolation (n.)', c: '慰藉 / 安慰', lv: 6, weight: 10 },
-{ w: 'console (n./v.)', c: '安慰 / 主控台(n.)', lv: 6, weight: 10 },
+{ w: 'console (n./v.)', c: '安慰 / 主控台', lv: 6, weight: 10 },
 { w: 'consonant (n.)', c: '子音 / 輔音', lv: 6, weight: 10 },
 { w: 'conspiracy (n.)', c: '陰謀 / 共謀', lv: 6, weight: 10 },
 { w: 'contention (n.)', c: '爭論 / 主張', lv: 6, weight: 10 },

@@ -36,8 +36,8 @@
             <button class="close-btn" onclick="closeTutorial()">✖</button>
             <h3>📖 遊戲新手指南</h3>
             <div class="tutorial-text">
-                <p><b>1. 努力答題：</b>答對獲金幣，連續 5 次正確單字即畢業。</p>
-                <p><b>2. 經營農場：</b>種子生長完全取決於你的答題準確度。</p>
+                <p><b>1. 努力答題：</b>難度越高的單字，答對獲得的金幣越多！</p>
+                <p><b>2. 經營農場：</b>點擊右下角快捷鍵可瞬間完成播種與收成。</p>
                 <p><b>3. 狂熱模式：</b>活力 > 90% 寵物爆衝，收成速度翻倍！</p>
                 <p><b>4. 升級專業版：</b>解鎖高級單字庫 (Lv.3-6) 與頂級寵物。</p>
             </div>
@@ -76,7 +76,7 @@
                             <option value="5">Level 5-6 (高級)</option>
                             <option value="all">混合全單字</option>
                         </select>
-                        <br><span style="color:#f39c12; margin-top:5px; display:inline-block; font-weight:bold;" id="reward-hint">答對獎勵：💰 20</span>
+                        <br><span style="color:#f39c12; margin-top:5px; display:inline-block; font-weight:bold;" id="reward-hint">答對獎勵：💰 載入中...</span>
                     </div>
                     <h1 id="word-display">Ready?</h1>
                     <div id="options-grid"></div>
@@ -98,6 +98,11 @@
                     <div class="overlay-btn" onclick="openReviewArea()" style="background: #c0392b; border: 2px solid #922b21;">📖 錯題本</div>
                     <div class="overlay-btn" onclick="togglePanel('inventory')">🎒 背包</div>
                     <div class="overlay-btn" onclick="togglePanel('shop')">🛒 商城</div>
+                </div>
+
+                <div id="quick-actions">
+                    <button class="quick-btn plant-btn" onclick="autoPlant()">🌱 一鍵播種</button>
+                    <button class="quick-btn harvest-btn" onclick="autoHarvest()">🚜 一鍵收成</button>
                 </div>
                 
                 <div id="floating-panel" class="hidden">
@@ -156,7 +161,27 @@
             <button onclick="verifyLicenseKey()" class="unlock-btn">驗證並解鎖</button>
         </div>
     </div>
+<div id="rest-reminder-modal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; z-index: 3000;">
+        <div style="background: white; padding: 40px; border-radius: 20px; text-align: center; border: 5px solid #2ecc71; max-width: 400px;">
+            <h2 style="color: #27ae60; font-size: 1.8em; margin-top: 0;">⏳ 休息一下吧！</h2>
+            <p style="font-size: 1.1em; color: #2c3e50; line-height: 1.6;">你已經連續特訓 <b>1 個小時</b>了！<br>農場的寵物們也需要喝口水。<br>請讓眼睛離開螢幕 5 到 10 分鐘喔！</p>
+            <button onclick="document.getElementById('rest-reminder-modal').classList.add('hidden')" style="margin-top: 20px; padding: 15px 30px; background: #27ae60; color: white; border: none; border-radius: 12px; font-size: 1.2em; font-weight: bold; cursor: pointer; box-shadow: 0 5px 0 #1e8449;">我知道了</button>
+        </div>
+    </div>
 
+    <div id="forced-review-modal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(192, 57, 43, 0.95); display: flex; justify-content: center; align-items: center; z-index: 4000; flex-direction: column;">
+        <div style="background: white; padding: 30px; border-radius: 20px; text-align: center; width: 90%; max-width: 500px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
+            <div style="background: #e74c3c; color: white; padding: 10px; border-radius: 10px; font-weight: bold; font-size: 1.2em; margin-bottom: 20px;">
+                🚨 錯題達到 30 題！觸發地獄特訓 🚨
+            </div>
+            <p style="color: #7f8c8d; font-size: 1em; margin-bottom: 20px;">必須連續答對所有錯題，才能回到農場！<br><span id="forced-progress" style="color: #e74c3c; font-weight: bold; font-size: 1.2em;">剩餘：30 題</span></p>
+            
+            <h1 id="forced-word-display" style="color: #c0392b; font-size: 2.8em; margin: 20px 0;">Word</h1>
+            
+            <div id="forced-options-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%;">
+                </div>
+        </div>
+    </div>
     <script src="vocab.js"></script>
     <script src="script.js"></script>
 </body>

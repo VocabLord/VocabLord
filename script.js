@@ -1,8 +1,8 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-const COLS = 15;
-const ROWS = 10;
+let COLS = 10;
+let ROWS = 7;
 let TILE_SIZE = 64; 
 let offsetX = 0;
 let offsetY = 0;
@@ -21,9 +21,9 @@ let gameState = {
 };
 
 let activePets = {
-    pig: { x: 5, y: 5, targetX: 5, targetY: 5, state: 'idle', timer: 0, dir: 'Down' },
-    fox: { x: 8, y: 8, targetX: 8, targetY: 8, state: 'idle', timer: 0, dir: 'Down' },
-    cat: { x: 10, y: 5, targetX: 10, targetY: 5, state: 'idle', timer: 0, dir: 'Down' }
+    pig: { x: 4, y: 3, targetX: 4, targetY: 3, state: 'idle', timer: 0, dir: 'Down' },
+    fox: { x: 7, y: 4, targetX: 7, targetY: 4, state: 'idle', timer: 0, dir: 'Down' },
+    cat: { x: 2, y: 2, targetX: 2, targetY: 2, state: 'idle', timer: 0, dir: 'Down' }
 };
 
 const PET_DATA = {
@@ -34,8 +34,8 @@ const PET_DATA = {
 
 const SEED_DATA = {
     carrot: { id: 'carrot', name: '🥕 蘿蔔', cost: 20, sellPrice: 35, unlockLv: 1, exp: 35, growthFactor: 1.0 },
-    tomato: { id: 'tomato', name: '🍅 番茄', cost: 150, sellPrice: 250, unlockLv: 3, exp: 100, growthFactor: 0.5 },
-    radish: { id: 'radish', name: '🧅 甜菜', cost: 800, sellPrice: 1200, unlockLv: 5, exp: 300, growthFactor: 0.2 }
+    tomato: { id: 'tomato', name: '🍅 番茄', cost: 150, sellPrice: 250, unlockLv: 5, exp: 100, growthFactor: 0.5 },
+    radish: { id: 'radish', name: '🧅 甜菜', cost: 800, sellPrice: 1200, unlockLv: 10, exp: 300, growthFactor: 0.2 }
 };
 
 let currentSeed = 'carrot';
@@ -60,11 +60,55 @@ function loadAssets() {
     });
 }
 
+function migrateGrid() {
+    if (!gameState.farmTiles || gameState.farmTiles.length !== ROWS || gameState.farmTiles[0].length !== COLS) {
+        let refundAmount = 0;
+        
+        if (gameState.farmTiles && gameState.farmTiles.length > 0) {
+            for (let y = 0; y < gameState.farmTiles.length; y++) {
+                for (let x = 0; x < gameState.farmTiles[y].length; x++) {
+                    if (gameState.farmTiles[y][x] && gameState.farmTiles[y][x].plant && (x >= COLS || y >= ROWS)) {
+                        let pType = gameState.farmTiles[y][x].type;
+                        refundAmount += SEED_DATA[pType].cost; 
+                    }
+                }
+            }
+        }
+        
+        if (refundAmount > 0) {
+            gameState.coins += refundAmount;
+            setTimeout(() => {
+                let msgEl = document.getElementById('marquee-msg');
+                if(msgEl) msgEl.innerText = `🔄 農場升級：系統已自動為您退回超出邊界的種子費用 💰${refundAmount}！`;
+            }, 1000);
+        }
+
+        let newTiles = Array.from({length: ROWS}, () => Array.from({length: COLS}, () => ({ plant: false, type: null, progress: 0 })));
+        if (gameState.farmTiles && gameState.farmTiles.length > 0) {
+            for(let y = 0; y < Math.min(ROWS, gameState.farmTiles.length); y++) {
+                for(let x = 0; x < Math.min(COLS, gameState.farmTiles[y].length); x++) {
+                    newTiles[y][x] = gameState.farmTiles[y][x];
+                }
+            }
+        }
+        
+        Object.keys(activePets).forEach(pid => {
+            if (activePets[pid].x >= COLS) activePets[pid].x = COLS - 1;
+            if (activePets[pid].y >= ROWS) activePets[pid].y = ROWS - 1;
+            activePets[pid].targetX = activePets[pid].x;
+            activePets[pid].targetY = activePets[pid].y;
+        });
+
+        gameState.farmTiles = newTiles;
+        saveGame();
+    }
+}
+
 function resize() {
     const rect = canvas.parentElement.getBoundingClientRect();
-    canvas.width = rect.width; canvas.height = rect.height;
-    let tileW = canvas.width / COLS; let tileH = canvas.height / ROWS;
-    TILE_SIZE = Math.floor(Math.min(tileW, tileH));
+    canvas.width = rect.width; 
+    canvas.height = rect.height;
+    TILE_SIZE = Math.floor(Math.min(canvas.width / COLS, (canvas.height - 110) / ROWS));
     offsetX = Math.floor((canvas.width - (TILE_SIZE * COLS)) / 2);
     offsetY = Math.floor((canvas.height - (TILE_SIZE * ROWS)) / 2);
 }
@@ -95,10 +139,7 @@ function login() {
         } catch(e) { console.error("存檔讀取失敗，載入預設值"); }
     }
     
-    // 🔥 終極自我修復機制：如果存檔損毀導致農場沒格子，強制重新生成 🔥
-    if (!gameState.farmTiles || gameState.farmTiles.length !== ROWS || !gameState.farmTiles[0] || gameState.farmTiles[0].length !== COLS) {
-        gameState.farmTiles = Array.from({length: ROWS}, () => Array.from({length: COLS}, () => ({ plant: false, type: null, progress: 0 })));
-    }
+    migrateGrid(); 
     
     const diffSelector = document.getElementById('in-game-difficulty');
     if(diffSelector) diffSelector.value = gameState.difficulty;
@@ -106,15 +147,11 @@ function login() {
     document.getElementById('login-screen').classList.add('hidden');
     document.getElementById('game-container').classList.remove('hidden');
     
-    if (typeof globalVocab === 'undefined') {
-        alert("找不到單字庫 (vocab.js)！請確認檔案是否存在。");
-        return;
-    }
+    if (typeof globalVocab === 'undefined') { alert("找不到單字庫 (vocab.js)！請確認檔案是否存在。"); return; }
     
-    resize(); 
-    updateUI(); 
-    loadQuestion(); 
-    requestAnimationFrame(tick);
+    resize(); updateUI(); loadQuestion(); requestAnimationFrame(tick);
+
+
 }
 
 function saveGame() { if (currentUser) localStorage.setItem('vocabMaster_' + currentUser, JSON.stringify(gameState)); }
@@ -141,8 +178,16 @@ async function verifyLicenseKey() {
     try {
         const response = await fetch(`${SCRIPT_URL}?key=${key}&user=${currentUser}`);
         const data = await response.json();
-        if (data.success) { gameState.isPro = true; saveGame(); updateUI(); closePaywall(); alert("🎉 金鑰驗證成功！您已解鎖專業版！"); } 
-        else { alert(data.message); }
+        if (data.success) { 
+            gameState.isPro = true; saveGame(); updateUI(); closePaywall(); 
+            alert("🎉 金鑰驗證成功！您已解鎖專業版！"); 
+        } else { 
+            let msg = data.message;
+            if (msg.includes("使用") || msg.includes("綁定")) {
+                msg = "⚠️ 驗證失敗：此金鑰無效或已被其他帳號綁定使用！";
+            }
+            alert(msg); 
+        }
     } catch (error) { alert("連線驗證失敗。"); } finally { btnElem.innerText = "驗證並解鎖"; btnElem.disabled = false; }
 }
 
@@ -155,8 +200,8 @@ function changeDifficulty() {
 function getPetSize(lv) { return Math.min(TILE_SIZE * 1.5, TILE_SIZE * 0.8 + (lv - 1) * (TILE_SIZE * 0.05)); }
 function getPetSpeed(lv) { return Math.min(0.08, 0.02 + (lv - 1) * 0.002); }
 
-function getCoinReward() {
-    let base = 20; 
+function getCoinReward(wordLv) {
+    let base = (wordLv || 1) * 10;
     gameState.petsOwned.forEach(id => {
         let lv = gameState.petStats[id].lv;
         if (id === 'pig') base += (lv - 1) * 2;
@@ -182,20 +227,18 @@ function loadQuestion() {
         if (pool.length < 4) pool = globalVocab; 
     }
 
-    // 🔥 防呆機制：確保每個單字都有 weight，防止 NaN 當機 🔥
     pool.forEach(w => { if(typeof w.weight === 'undefined') w.weight = 10; });
 
     let totalWeight = pool.reduce((sum, word) => sum + word.weight, 0);
     let randomNum = Math.random() * totalWeight;
     for (let word of pool) { if (randomNum < word.weight) { currentWord = word; break; } randomNum -= word.weight; }
-    if (!currentWord.w) currentWord = pool[Math.floor(Math.random() * pool.length)]; // 終極防呆
+    if (!currentWord.w) currentWord = pool[Math.floor(Math.random() * pool.length)];
     
     const wordDisplay = document.getElementById('word-display');
     if(wordDisplay) wordDisplay.innerText = currentWord.w;
     
-    // 🔥 防呆機制：安全更新獎勵提示 🔥
     const rewardHint = document.getElementById('reward-hint');
-    if(rewardHint) rewardHint.innerText = `答對獎勵：💰 ${getCoinReward()}`;
+    if(rewardHint) rewardHint.innerText = `答對獎勵：💰 ${getCoinReward(currentWord.lv)}`;
     
     const grid = document.getElementById('options-grid'); 
     if(grid) {
@@ -214,7 +257,7 @@ function loadQuestion() {
                 if (!gameState.wordStats[currentWord.w]) { gameState.wordStats[currentWord.w] = { correct: 0, wrong: 0, consecutive: 0 }; }
 
                 if(o === currentWord.c) {
-                    gameState.coins += getCoinReward(); 
+                    gameState.coins += getCoinReward(currentWord.lv); 
                     gameState.energy = Math.min(100, gameState.energy + 30);
                     currentWord.weight = Math.max(1, currentWord.weight - 3); 
                     
@@ -247,18 +290,35 @@ function loadQuestion() {
 
 function openReviewArea() { document.getElementById('review-screen').classList.remove('hidden'); renderReviewList(); }
 function closeReviewArea() { document.getElementById('review-screen').classList.add('hidden'); }
+// 🔥 錯題本智慧分級顯示 🔥
 function renderReviewList() {
     const list = document.getElementById('review-list');
-    let arr = Object.values(gameState.mistakes).sort((a, b) => b.count - a.count);
-    if (arr.length === 0) { list.innerHTML = "<div class='empty-review'>🎉 錯題本是空的！</div>"; return; }
-    list.innerHTML = arr.map(m => `
-        <div class="review-item">
-            <div class="review-word-info">
-                <div class="review-word">${m.w} <span style="font-size: 0.6em; background: #3498db; color: white; padding: 2px 6px; border-radius: 4px; margin-left: 5px;">Lv.${m.lv || '?'}</span> <span class="error-count-badge">錯了 ${m.count} 次</span></div>
-                <div class="review-mean">${m.c}</div>
-            </div>
-            <button class="master-btn" onclick="masterWord('${encodeURIComponent(m.w)}')">✅ 複習熟悉</button>
-        </div>`).join('');
+    let mistakesArr = Object.values(gameState.mistakes);
+    if (mistakesArr.length === 0) { list.innerHTML = "<div class='empty-review'>🎉 錯題本是空的！</div>"; return; }
+
+    // 依據單字等級 (Lv) 進行分組
+    let grouped = {};
+    mistakesArr.forEach(m => {
+        let lv = m.lv || 1;
+        if (!grouped[lv]) grouped[lv] = [];
+        grouped[lv].push(m);
+    });
+
+    let html = "";
+    // 依等級 1 -> 6 排序輸出
+    Object.keys(grouped).sort((a, b) => a - b).forEach(lv => {
+        grouped[lv].sort((a, b) => b.count - a.count); // 同等級內依錯誤次數排序
+        html += `<h3 class="review-lv-header">Level ${lv} 單字</h3>`;
+        html += grouped[lv].map(m => `
+            <div class="review-item">
+                <div class="review-word-info">
+                    <div class="review-word">${m.w} <span class="error-count-badge">錯了 ${m.count} 次</span></div>
+                    <div class="review-mean">${m.c}</div>
+                </div>
+                <button class="master-btn" onclick="masterWord('${encodeURIComponent(m.w)}')">✅ 複習</button>
+            </div>`).join('');
+    });
+    list.innerHTML = html;
 }
 function masterWord(sw) {
     let wk = decodeURIComponent(sw);
@@ -304,7 +364,7 @@ function moveAllPets() {
         let p = activePets[pid]; let stat = gameState.petStats[pid]; let speed = getPetSpeed(stat.lv);
         if (gameState.energy >= 90) speed *= 3.0; 
         if (gameState.energy <= 0) { p.dir = 'Dead'; return; }
-        if (p.state === 'idle') { p.timer--; if (p.timer <= 0) { p.targetX = Math.random()*14; p.targetY = Math.random()*9; p.state = 'walk'; } } 
+        if (p.state === 'idle') { p.timer--; if (p.timer <= 0) { p.targetX = Math.random()*(COLS-1); p.targetY = Math.random()*(ROWS-1); p.state = 'walk'; } } 
         else {
             let dx = p.targetX - p.x, dy = p.targetY - p.y, dist = Math.sqrt(dx*dx + dy*dy);
             if (dist > speed) { p.x += (dx/dist)*speed; p.y += (dy/dist)*speed; p.dir = Math.abs(dx)>Math.abs(dy)?(dx>0?'Right':'Left'):(dy>0?'Down':'Up'); checkPetCollision(p); } 
@@ -315,7 +375,7 @@ function moveAllPets() {
 
 function checkPetCollision(p) {
     let tx = Math.floor(p.x + 0.5), ty = Math.floor(p.y + 0.5);
-    if(gameState.farmTiles[ty] && gameState.farmTiles[ty][tx]) {
+    if(tx>=0 && tx<COLS && ty>=0 && ty<ROWS && gameState.farmTiles[ty] && gameState.farmTiles[ty][tx]) {
         let t = gameState.farmTiles[ty][tx];
         if (t.plant) {
             let b = (gameState.energy >= 90)?1.5:0.5;
@@ -328,8 +388,10 @@ function checkPetCollision(p) {
 function handleInteraction(e) {
     e.preventDefault(); const rect = canvas.getBoundingClientRect();
     const cx = e.touches ? e.touches[0].clientX : e.clientX, cy = e.touches ? e.touches[0].clientY : e.clientY;
-    const x = Math.floor((cx - rect.left - offsetX) / TILE_SIZE), y = Math.floor((cy - rect.top - offsetY) / TILE_SIZE);
-    if(x>=0 && x<15 && y>=0 && y<10 && gameState.farmTiles[y] && gameState.farmTiles[y][x]) {
+    const x = Math.floor((cx - rect.left - offsetX) / TILE_SIZE);
+    const y = Math.floor((cy - rect.top - offsetY) / TILE_SIZE);
+    
+    if(x>=0 && x<COLS && y>=0 && y<ROWS && gameState.farmTiles[y] && gameState.farmTiles[y][x]) {
         let t = gameState.farmTiles[y][x];
         if (t.plant && t.progress >= 100) { gameState.inventory[t.type] = (gameState.inventory[t.type]||0)+1; t.plant = false; t.type = null; t.progress = 0; } 
         else if (!t.plant && gameState.coins >= SEED_DATA[currentSeed].cost) { gameState.coins -= SEED_DATA[currentSeed].cost; t.plant = true; t.type = currentSeed; t.progress = 0; }
@@ -342,10 +404,26 @@ function tick() { gameState.energy = Math.max(0, gameState.energy - 0.04); moveA
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    let farmWidth = COLS * TILE_SIZE;
+    let farmHeight = ROWS * TILE_SIZE;
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+    ctx.shadowBlur = 15;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 10;
+    ctx.fillStyle = '#2d5a27'; 
+    ctx.fillRect(offsetX - 2, offsetY - 2, farmWidth + 4, farmHeight + 4);
+    ctx.restore();
+
     gameState.farmTiles.forEach((row, y) => row.forEach((tile, x) => {
-        let px = offsetX + x * TILE_SIZE, py = offsetY + y * TILE_SIZE;
+        let px = offsetX + x * TILE_SIZE;
+        let py = offsetY + y * TILE_SIZE;
+        
         if(images.grass && images.grass.isLoaded) ctx.drawImage(images.grass, px, py, TILE_SIZE, TILE_SIZE);
         if(images.soil && images.soil.isLoaded) ctx.drawImage(images.soil, px, py, TILE_SIZE, TILE_SIZE);
+        
         if(tile.plant) {
             let k = tile.progress >= 100 ? tile.type+'_02' : tile.type+'_01';
             if(images[k] && images[k].isLoaded) ctx.drawImage(images[k], px, py, TILE_SIZE, TILE_SIZE);
@@ -355,6 +433,7 @@ function draw() {
             }
         }
     }));
+
     let sortedPets = [...gameState.petsOwned];
     sortedPets.sort((a, b) => activePets[a].y - activePets[b].y); 
     sortedPets.forEach(petId => {
@@ -373,20 +452,37 @@ function draw() {
     });
 }
 
-function feedPig(type) {
+// 🔥 全新智慧餵食引擎 (支援單一與一鍵全餵) 🔥
+function processFeeding(type, amount) {
     let cp = gameState.currentPet;
     let stat = gameState.petStats[cp];
-    if (gameState.inventory[type] > 0) {
-        if (gameState.energy <= 0) gameState.energy = 20; 
-        gameState.inventory[type]--;
-        stat.exp += SEED_DATA[type].exp;
-        let expNeeded = stat.lv * 100;
-        while (stat.exp >= expNeeded) {
-            stat.lv++; stat.exp -= expNeeded; gameState.energy = 100;
+    let count = gameState.inventory[type] || 0;
+    amount = Math.min(amount, count); // 確保餵食數量不超過背包擁有數
+
+    if (amount > 0) {
+        gameState.inventory[type] -= amount;
+        stat.exp += SEED_DATA[type].exp * amount;
+        // 餵食也可恢復活力，每吃一個恢復 10 點
+        gameState.energy = Math.min(100, gameState.energy + (10 * amount));
+
+        // 精確的升級計算器 (可處理瞬間獲得巨量經驗連升好幾級的情況)
+        while (stat.exp >= stat.lv * 100) {
+            stat.exp -= stat.lv * 100;
+            stat.lv++;
+            gameState.energy = 100; // 升級瞬間回滿活力
         }
-        updateUI(); saveGame(); togglePanel('inventory');
+
+        updateUI(); 
+        saveGame(); 
+        togglePanel('inventory'); // 重新渲染背包畫面
     }
 }
+
+// 餵 1 個
+function feedPig(type) { processFeeding(type, 1); }
+
+// 一鍵全餵 (把該作物全部餵掉)
+function feedAllOf(type) { processFeeding(type, gameState.inventory[type] || 0); }
 
 function sellPlant(type) {
     if (gameState.inventory[type] > 0) {
@@ -414,7 +510,16 @@ function autoHarvest() {
             count++;
         }
     }));
-    if(count > 0) { updateUI(); saveGame(); togglePanel('inventory'); }
+    
+    let msgEl = document.getElementById('marquee-msg');
+    if(count > 0) { 
+        updateUI(); saveGame(); 
+        if(msgEl) msgEl.innerText = `🚜 成功一鍵收成了 ${count} 個作物！請到背包查看。`;
+        const p = document.getElementById('floating-panel');
+        if(!p.classList.contains('hidden') && document.getElementById('panel-title').innerText.includes('背包')) { togglePanel('inventory'); }
+    } else {
+        if(msgEl) msgEl.innerText = `🚜 目前農場裡沒有成熟的作物可以收成喔！`;
+    }
 }
 
 function autoPlant() {
@@ -435,7 +540,16 @@ function autoPlant() {
             count++;
         } else { break; }
     }
-    if(count > 0) { updateUI(); saveGame(); togglePanel('shop'); }
+    
+    let msgEl = document.getElementById('marquee-msg');
+    if(count > 0) { 
+        updateUI(); saveGame(); 
+        if(msgEl) msgEl.innerText = `🌱 成功一鍵播種了 ${count} 個 ${SEED_DATA[currentSeed].name}！`;
+    } else if (gameState.coins < cost) {
+        if(msgEl) msgEl.innerText = `💰 金幣不足！裝備的 ${SEED_DATA[currentSeed].name} 每個需要 ${cost} 金幣。`;
+    } else {
+        if(msgEl) msgEl.innerText = `🌱 農場已經客滿，沒有空地可以播種囉！`;
+    }
 }
 
 function equipSeed(type) { currentSeed = type; updateUI(); togglePanel('shop'); }
@@ -457,6 +571,7 @@ function buyPet(petId) {
     }
 }
 
+// 🔥 背包面板加入「全餵」按鈕與 2x2 網格排版 🔥
 function togglePanel(type) {
     const p = document.getElementById('floating-panel');
     if (!type) { p.classList.add('hidden'); return; }
@@ -472,18 +587,19 @@ function togglePanel(type) {
             let count = gameState.inventory[key] || 0;
             if (count > 0) { 
                 hasItem = true;
-                invHTML += `<div class="shop-item" style="flex-wrap: wrap; margin-bottom: 5px; padding-bottom: 10px; border-bottom: 1px dashed #ccc;">
-                    <span style="width: 100%; font-weight: bold; margin-bottom: 8px; display: block;">${SEED_DATA[key].name} x ${count}</span>
-                    <div style="display: flex; gap: 5px; width: 100%;">
-                        <button onclick="feedPig('${key}')" style="background:#8bc34a; flex: 1.2;">餵食</button>
-                        <button onclick="sellPlant('${key}')" style="background:#f39c12; flex: 1;">賣1</button>
-                        <button onclick="sellAllOf('${key}')" style="background:#e74c3c; flex: 1;">全賣</button>
+                invHTML += `<div class="shop-item" style="flex-wrap: wrap; margin-bottom: 10px; padding-bottom: 15px; border-bottom: 1px dashed #ccc;">
+                    <span style="width: 100%; font-weight: bold; margin-bottom: 10px; display: block; font-size: 1.1em; color: #2c3e50;">${SEED_DATA[key].name} x ${count}</span>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%;">
+                        <button onclick="feedPig('${key}')" style="background:#8bc34a;">餵 1</button>
+                        <button onclick="feedAllOf('${key}')" style="background:#27ae60;">全餵</button>
+                        <button onclick="sellPlant('${key}')" style="background:#f39c12;">賣 1</button>
+                        <button onclick="sellAllOf('${key}')" style="background:#e74c3c;">全賣</button>
                     </div>
                 </div>`;
             }
         }
-        document.getElementById('panel-body').innerHTML = hasItem ? invHTML : invHTML + "<p style='text-align:center; color:#777;'>背包空空的</p>";
-    } else if (type === 'shop') {
+        document.getElementById('panel-body').innerHTML = hasItem ? invHTML : invHTML + "<p style='text-align:center; color:#777; margin-top:20px;'>背包空空的</p>";
+} else if (type === 'shop') {
         const pTitle = document.getElementById('panel-title');
         if(pTitle) pTitle.innerText = '種子商城';
         let shopHTML = `<div style="margin-bottom:10px; border-bottom: 2px solid #eee; padding-bottom: 10px;">
@@ -492,7 +608,17 @@ function togglePanel(type) {
         for (let key in SEED_DATA) {
             let seed = SEED_DATA[key];
             let isUnlocked = gameState.petStats.pig.lv >= seed.unlockLv; 
-            shopHTML += `<div class="shop-item" style="padding: 5px 0;"><span>${seed.name} (💰${seed.cost}) <br><small>${isUnlocked ? '' : `神豬 Lv.${seed.unlockLv} 解鎖`}</small></span><button onclick="equipSeed('${seed.id}')" ${!isUnlocked?'disabled':''}>${isUnlocked ? (currentSeed===key ? '裝備中' : '裝備') : '未解鎖'}</button></div>`;
+            
+            // 🔥 視覺設計師優化：動態按鈕狀態配色 🔥
+            let btnBg = !isUnlocked ? '#bdc3c7' : (currentSeed === key ? '#f1c40f' : '#3498db');
+            let btnColor = (currentSeed === key) ? '#d35400' : 'white';
+            let btnText = isUnlocked ? (currentSeed === key ? '✔ 裝備中' : '裝備') : '🔒 未解鎖';
+            let extraStyle = currentSeed === key ? 'box-shadow: 0 0 12px rgba(241, 196, 15, 0.8); transform: scale(1.05); border: 2px solid #e67e22;' : '';
+
+            shopHTML += `<div class="shop-item" style="padding: 10px 0;">
+                <span>${seed.name} (💰${seed.cost}) <br><small style="color:#7f8c8d;">${isUnlocked ? '已解鎖' : `神豬 Lv.${seed.unlockLv} 解鎖`}</small></span>
+                <button onclick="equipSeed('${seed.id}')" ${!isUnlocked?'disabled':''} style="background: ${btnBg}; color: ${btnColor}; transition: 0.2s; ${extraStyle}">${btnText}</button>
+            </div>`;
         }
         document.getElementById('panel-body').innerHTML = shopHTML;
     } else if (type === 'pet') {
@@ -520,9 +646,12 @@ function updateUI() {
     if(coinEl) coinEl.innerText = Math.floor(gameState.coins);
     
     const proBadge = document.getElementById('pro-badge');
-    if(proBadge) {
-        if (gameState.isPro) proBadge.classList.remove('hidden'); 
-        else proBadge.classList.add('hidden');
+    if (gameState.isPro) { 
+        document.body.classList.add('is-pro');
+        if (proBadge) proBadge.classList.remove('hidden'); 
+    } else { 
+        document.body.classList.remove('is-pro');
+        if (proBadge) proBadge.classList.add('hidden'); 
     }
     
     let energyFill = document.getElementById('energy-fill');
@@ -560,6 +689,176 @@ function updateUI() {
         pigImg.src = images[petImgKey].src; 
         pigImg.style.display = 'block'; 
     }
+
+// ==========================================
+// 🔥 遊戲內建懸浮通知 (取代醜陋的 alert) 🔥
+// ==========================================
+function showToast(msg, type = 'info') {
+    let toast = document.getElementById('game-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'game-toast';
+        document.body.appendChild(toast);
+    }
+    toast.innerText = msg;
+    // 重置 class 並加上對應的顏色
+    toast.className = `toast-show toast-${type}`;
+    
+    // 2.5 秒後自動消失
+    setTimeout(() => {
+        toast.classList.remove('toast-show');
+    }, 2500);
+}
+
+// 覆寫買寵物、驗證碼的 alert (讓全遊戲統一)
+window.alert = function(msg) { showToast(msg, 'info'); };
+
+// ==========================================
+// 🔥 地獄特訓關卡 (視覺回饋升級版) 🔥
+// ==========================================
+const REVIEW_THRESHOLD = 30; // 30 題觸發
+let forcedReviewQueue = [];
+let currentForcedWord = null;
+
+function checkForcedReview() {
+    let mistakeCount = Object.keys(gameState.mistakes).length;
+    if (mistakeCount >= REVIEW_THRESHOLD) {
+        startForcedReview();
+    }
+}
+
+const originalLoadQuestion = loadQuestion;
+loadQuestion = function() {
+    originalLoadQuestion();
+    checkForcedReview();
+};
+
+function startForcedReview() {
+    forcedReviewQueue = Object.values(gameState.mistakes).sort(() => Math.random() - 0.5);
+    document.getElementById('forced-review-modal').classList.remove('hidden');
+    loadForcedReviewQuestion();
+}
+
+function loadForcedReviewQuestion() {
+    if (forcedReviewQueue.length === 0) {
+        document.getElementById('forced-review-modal').classList.add('hidden');
+        showToast("🎉 特訓完成！獲得 💰500 獎勵金與滿滿活力！", "success");
+        gameState.coins += 500;
+        gameState.energy = 100;
+        saveGame();
+        updateUI();
+        return;
+    }
+
+    currentForcedWord = forcedReviewQueue[0];
+    document.getElementById('forced-word-display').innerText = currentForcedWord.w;
+    document.getElementById('forced-progress').innerText = `剩餘：${forcedReviewQueue.length} 題`;
+
+    // 清除可能殘留的「下一題」按鈕
+    let existingNextBtn = document.getElementById('forced-next-btn');
+    if (existingNextBtn) existingNextBtn.remove();
+
+    let opts = [currentForcedWord.c];
+    let failSafe = 0;
+    while(opts.length < 4 && failSafe < 100) {
+        let r = globalVocab[Math.floor(Math.random() * globalVocab.length)].c;
+        if(!opts.includes(r) && r !== undefined) opts.push(r);
+        failSafe++;
+    }
+
+    const grid = document.getElementById('forced-options-grid');
+    grid.innerHTML = '';
+    
+    opts.sort(() => Math.random() - 0.5).forEach(o => {
+        let btn = document.createElement('button');
+        btn.innerText = o;
+        btn.style.padding = "15px";
+        btn.style.fontSize = "1.1em";
+        btn.style.fontWeight = "bold";
+        btn.style.border = "2px solid #bdc3c7";
+        btn.style.borderRadius = "12px";
+        btn.style.backgroundColor = "white";
+        btn.style.cursor = "pointer";
+        btn.style.transition = "0.2s";
+        btn.style.color = "#2c3e50";
+        
+        if (o === currentForcedWord.c) {
+            btn.dataset.correct = "true";
+        }
+
+        btn.onclick = () => {
+            Array.from(grid.children).forEach(b => b.disabled = true);
+
+            if (o === currentForcedWord.c) {
+                // 答對了：亮綠燈，給予 0.5 秒成就感後自動換下一題 (保持流暢節奏)
+                btn.style.backgroundColor = "#2ecc71";
+                btn.style.color = "white";
+                btn.style.borderColor = "#27ae60";
+                
+                forcedReviewQueue.shift(); 
+                if (gameState.mistakes[currentForcedWord.w]) {
+                    gameState.mistakes[currentForcedWord.w].count--;
+                    if (gameState.mistakes[currentForcedWord.w].count <= 0) {
+                        delete gameState.mistakes[currentForcedWord.w];
+                    }
+                }
+                saveGame();
+                setTimeout(() => { loadForcedReviewQuestion(); }, 500); 
+                
+            } else {
+                // 答錯了：亮紅燈，顯示正確答案
+                btn.style.backgroundColor = "#e74c3c";
+                btn.style.color = "white";
+                btn.style.borderColor = "#c0392b";
+
+                let correctBtn = Array.from(grid.children).find(b => b.dataset.correct === "true");
+                if (correctBtn) {
+                    correctBtn.style.backgroundColor = "#2ecc71";
+                    correctBtn.style.color = "white";
+                    correctBtn.style.borderColor = "#27ae60";
+                }
+
+                const modalBox = document.querySelector('#forced-review-modal > div');
+                modalBox.classList.add('shake-animation');
+                setTimeout(() => modalBox.classList.remove('shake-animation'), 500);
+
+                showToast("❌ 答錯了！請記住正確的中文意思。", "error");
+                
+                let w = forcedReviewQueue.shift();
+                forcedReviewQueue.push(w); // 塞回最後面
+                
+                // 🔥 視覺設計師優化：動態生成「下一題」按鈕，讓學生自己決定何時跳轉 🔥
+                let nextBtn = document.createElement('button');
+                nextBtn.id = 'forced-next-btn';
+                nextBtn.innerText = "記住了，下一題 ➔";
+                nextBtn.style.marginTop = "20px";
+                nextBtn.style.padding = "15px";
+                nextBtn.style.fontSize = "1.2em";
+                nextBtn.style.fontWeight = "bold";
+                nextBtn.style.backgroundColor = "#34495e";
+                nextBtn.style.color = "white";
+                nextBtn.style.border = "none";
+                nextBtn.style.borderRadius = "12px";
+                nextBtn.style.cursor = "pointer";
+                nextBtn.style.width = "100%";
+                nextBtn.style.boxShadow = "0 5px 0 #2c3e50";
+                nextBtn.style.transition = "0.1s";
+                
+                nextBtn.onmousedown = () => { 
+                    nextBtn.style.transform = "translateY(5px)"; 
+                    nextBtn.style.boxShadow = "none"; 
+                };
+                nextBtn.onclick = () => {
+                    loadForcedReviewQuestion(); // 玩家點擊後才載入下一題
+                };
+                
+                // 把按鈕加到考卷面板的最後面
+                grid.parentElement.appendChild(nextBtn);
+            }
+        };
+        grid.appendChild(btn);
+    });
+}
 }
 
 loadAssets();
