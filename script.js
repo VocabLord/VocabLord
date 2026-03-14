@@ -118,6 +118,14 @@ window.addEventListener('resize', resize);
 document.addEventListener("DOMContentLoaded", () => {
     const lastUser = localStorage.getItem('last_user_vocablord');
     if (lastUser) { document.getElementById('username-input').value = lastUser; }
+    
+    // 🔥 修復手機版 Bug：將浮動面板移出農場，保證在任何畫面都能置中彈出
+    const panel = document.getElementById('floating-panel');
+    if (panel) {
+        document.body.appendChild(panel);
+        panel.style.position = 'fixed';
+        panel.style.zIndex = '9999';
+    }
 });
 
 function showTutorial() { document.getElementById('tutorial-modal').classList.remove('hidden'); }
