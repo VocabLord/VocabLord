@@ -243,4 +243,40 @@ body.is-pro #ui-overlays { left: 20px; }
     
     /* 浮動面板縮小以適應手機 */
     #floating-panel { width: 95%; padding: 15px; }
+
+
+/* =========================================
+   🛠️ 最終版 UI 修復 (強制覆蓋錯誤排版)
+   ========================================= */
+
+/* 修復 1：讓更換寵物標籤變回高質感金橘色，且強制不換行 */
+.switch-icon-hint {
+    position: absolute !important; 
+    bottom: -10px !important; 
+    left: 50% !important; 
+    transform: translateX(-50%) !important;
+    background: linear-gradient(135deg, #f1c40f, #f39c12) !important; 
+    color: white !important;
+    padding: 4px 10px !important; 
+    border-radius: 20px !important; 
+    border: 2px solid white !important; 
+    font-size: 0.8em !important; 
+    font-weight: 900 !important; 
+    white-space: nowrap !important; /* 保證四個字排在同一行 */
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3) !important; 
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3) !important;
+    z-index: 10 !important;
+}
+
+/* 修復 2：手機版把「升級專業版」移到左下角空位，避開選單 */
+@media (max-width: 1024px) {
+    #pro-upgrade-btn {
+        top: auto !important; 
+        bottom: 90px !important; /* 移到左下角，一鍵播種的上方 */
+        left: 15px !important;
+        padding: 10px 15px !important;
+        font-size: 0.95em !important;
+        z-index: 100 !important;
+    }
+}
 }
