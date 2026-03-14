@@ -218,9 +218,9 @@ body.is-pro #ui-overlays { left: 20px; }
     #ui-overlays { top: 15px; left: 5px !important; right: 5px; width: auto; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; bottom: auto; transform: none; }
     .overlay-btn { padding: 10px 5px; font-size: 0.9em; flex: 1; min-width: 30%; text-align: center; border-radius: 8px; border: 2px solid rgba(255, 255, 255, 0.2); }
     
-    #quick-actions { bottom: 20px; right: 10px; left: 10px; flex-direction: row; justify-content: space-between; gap: 10px; }
-    .quick-btn { flex: 1; padding: 12px 0; font-size: 1.05em; border-radius: 12px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-
+    #quick-actions { bottom: 20px; right: 15px; left: 15px; display: flex; flex-direction: row; gap: 15px; }
+    .quick-btn { flex: 1; height: 50px; font-size: 1.1em; border-radius: 12px; display: flex; justify-content: center; align-items: center; margin: 0; padding: 0; box-sizing: border-box; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+    
     /* 浮動面板縮小以適應手機 */
     #floating-panel { width: 95%; padding: 15px; }
 }
