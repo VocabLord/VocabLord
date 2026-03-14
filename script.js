@@ -169,6 +169,11 @@ function login() {
     }, 60 * 60 * 1000); 
     
     resize(); updateUI(); loadQuestion(); requestAnimationFrame(tick);
+
+    // 🔥 手機版：登入後自動切換至測驗分頁 🔥
+    if (window.innerWidth <= 1024) {
+        setTimeout(() => { switchTab('quiz'); }, 50);
+    }
 }
 
 function saveGame() { if (currentUser) localStorage.setItem('vocabMaster_' + currentUser, JSON.stringify(gameState)); }
@@ -229,7 +234,7 @@ function getCoinReward(wordLv) {
 }
 
 // ==========================================
-// 🔥 核心答題邏輯 (修復時空衝突 Bug + 扁平化第五按鈕) 🔥
+// 🔥 核心答題邏輯 🔥
 // ==========================================
 function loadQuestion() {
     if (typeof globalVocab === 'undefined') return;
@@ -321,7 +326,6 @@ function loadQuestion() {
                     gameState.mistakes[currentWord.w].count += 1; 
                     saveGame(); 
                     
-                    // 💡 防死機核心邏輯：等待 2 秒後，先檢查是否觸發特訓，才決定要不要載入下一題
                     setTimeout(() => { 
                         if (Object.keys(gameState.mistakes).length >= 30) {
                             startForcedReview();
@@ -334,15 +338,14 @@ function loadQuestion() {
             grid.appendChild(b);
         });
 
-        // 🔥 視覺設計師優化：將第五個按鈕變扁、變淺，節省手機空間 🔥
         let idkBtn = document.createElement('button');
         idkBtn.innerText = "👀 我不會 (看答案)";
         idkBtn.style.gridColumn = "span 2"; 
-        idkBtn.style.padding = "10px"; // 把 padding 縮小，節省垂直空間
-        idkBtn.style.fontSize = "0.95em"; // 字體縮小
+        idkBtn.style.padding = "10px"; 
+        idkBtn.style.fontSize = "0.95em"; 
         idkBtn.style.backgroundColor = "#f8f9fa"; 
         idkBtn.style.color = "#7f8c8d";
-        idkBtn.style.border = "2px dashed #bdc3c7"; // 虛線邊框，降低視覺比重
+        idkBtn.style.border = "2px dashed #bdc3c7"; 
         idkBtn.style.boxShadow = "none";
         
         idkBtn.onclick = () => {
@@ -363,7 +366,6 @@ function loadQuestion() {
             gameState.mistakes[currentWord.w].count += 1; 
             saveGame(); 
 
-            // 💡 防死機核心邏輯
             setTimeout(() => { 
                 if (Object.keys(gameState.mistakes).length >= 30) {
                     startForcedReview();
@@ -377,7 +379,7 @@ function loadQuestion() {
 }
 
 // ==========================================
-// 🔥 地獄特訓關卡 (修復 Bug 穩定版) 🔥
+// 🔥 地獄特訓關卡 🔥
 // ==========================================
 let forcedReviewQueue = [];
 let currentForcedWord = null;
@@ -396,7 +398,7 @@ function loadForcedReviewQuestion() {
         gameState.energy = 100;
         saveGame();
         updateUI();
-        loadQuestion(); // 特訓結束後，恢復主遊戲的題目載入
+        loadQuestion(); 
         return;
     }
 
@@ -493,7 +495,6 @@ function loadForcedReviewQuestion() {
 
 function openReviewArea() { document.getElementById('review-screen').classList.remove('hidden'); renderReviewList(); }
 function closeReviewArea() { document.getElementById('review-screen').classList.add('hidden'); }
-// 🔥 錯題本智慧分級顯示 🔥
 function renderReviewList() {
     const list = document.getElementById('review-list');
     let mistakesArr = Object.values(gameState.mistakes);
@@ -822,3 +823,28 @@ function updateUI() {
 }
 
 loadAssets();
+
+// ================= 手機版分頁切換控制 =================
+function switchTab(tabName) {
+    if (window.innerWidth > 1024) return; // 桌機版不作用
+
+    const sidebar = document.getElementById('sidebar');
+    const farm = document.getElementById('farm-viewport');
+    const quizBtn = document.getElementById('nav-quiz-btn');
+    const farmBtn = document.getElementById('nav-farm-btn');
+
+    if (tabName === 'quiz') {
+        if(sidebar) sidebar.classList.remove('mobile-hidden');
+        if(farm) farm.classList.add('mobile-hidden');
+        if(quizBtn) quizBtn.classList.add('active');
+        if(farmBtn) farmBtn.classList.remove('active');
+    } else if (tabName === 'farm') {
+        if(sidebar) sidebar.classList.add('mobile-hidden');
+        if(farm) farm.classList.remove('mobile-hidden');
+        if(quizBtn) quizBtn.classList.remove('active');
+        if(farmBtn) farmBtn.classList.add('active');
+        
+        // 切換到農場時，重新計算畫布大小防止變形
+        setTimeout(resize, 50);
+    }
+}

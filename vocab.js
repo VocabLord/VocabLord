@@ -1420,7 +1420,7 @@ const globalVocab = [
 { w: 'greet (v.)', c: '問候 / 迎接', lv: 2, weight: 10 },
 { w: 'growth (n.)', c: '成長 / 增加', lv: 2, weight: 10 },
 { w: 'guard (n./v.)', c: '警衛 / 保護 / 看守', lv: 2, weight: 10 },
-{ w: 'guava (n.)', c: '番石榴', lv: 2, weight: 10 },
+{ w: 'guava (n.)', c: '芭樂', lv: 2, weight: 10 },
 { w: 'guest (n.)', c: '客人', lv: 2, weight: 10 },
 { w: 'guide (n./v.)', c: '嚮導 / 指南 / 指引', lv: 2, weight: 10 },
 { w: 'gun (n./v.)', c: '槍', lv: 2, weight: 10 },
