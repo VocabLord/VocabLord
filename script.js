@@ -918,7 +918,7 @@ function switchTab(tabName) {
 }
 
 // ==========================================
-// 🔊 單字發音系統 (Google 雲端真人神經語音版)
+// 🔊 單字發音系統 (高音質字典原音 + 系統備用雙防護版)
 // ==========================================
 function speakCurrentWord(speedMode = 'normal') {
     let displayElement = document.getElementById('word-display');
@@ -930,23 +930,37 @@ function speakCurrentWord(speedMode = 'normal') {
     // 清洗單字：去掉斜線與括號
     let cleanWord = rawText.split('/')[0].split('(')[0].trim();
     
-    // 🔥 呼叫 Google 翻譯的隱藏版真人語音 API (極度自然的美式發音)
-    let url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en-US&q=${encodeURIComponent(cleanWord)}`;
+    // 🔥 改用開放的字典發音 API (type=2 為標準美式發音)，不會被伺服器阻擋！
+    let url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(cleanWord)}&type=2`;
     
-    // 建立 HTML5 音效播放器
     let audio = new Audio(url);
 
-    // ⚡ 根據按鈕設定播放速度
+    // ⚡ 設定播放速度
     if (speedMode === 'slow') {
-        audio.playbackRate = 0.5; // 🐢 慢速模式：精準的 0.5 倍速，而且不會變聲！
+        audio.playbackRate = 0.5; // 🐢 慢速模式：精準半速，音調不變
     } else {
-        audio.playbackRate = 1.0; // ▶ 正常真人語速
+        audio.playbackRate = 1.0; // ▶ 正常語速
     }
 
     // 播放聲音
     audio.play().catch(e => {
-        console.error("雲端發音載入失敗", e);
-        showToast("⚠️ 無法播放發音，請檢查網路連線", "error");
+        console.warn("字典音檔載入失敗，啟用備用系統發音機制...", e);
+        // 🛡️ 防呆機制：如果遇到極度冷門字或網路異常，自動退回系統語音，保證有聲音
+        fallbackToSystemTTS(cleanWord, speedMode);
     });
+}
+
+// 🛡️ 備用系統發音函數 (不需修改)
+function fallbackToSystemTTS(word, speedMode) {
+    if (!('speechSynthesis' in window)) {
+        return showToast("⚠️ 無法播放發音，請檢查網路連線", "error");
+    }
+    window.speechSynthesis.cancel(); 
+    setTimeout(() => {
+        let utterance = new SpeechSynthesisUtterance(word);
+        utterance.lang = 'en-US'; 
+        utterance.rate = (speedMode === 'slow') ? 0.4 : 0.85; 
+        window.speechSynthesis.speak(utterance);
+    }, 50);
 }
 loadAssets();
