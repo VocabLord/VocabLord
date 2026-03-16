@@ -254,6 +254,8 @@ async function login() {
             currentUser = gameState.playerName;
             document.getElementById('hub-player-name').innerText = currentUser;
             showToast("登入成功！歡迎回來", "success");
+            // ⭐️ 加在這裡：老玩家進大廳後，跳出 iOS 提示
+            checkAndShowIOSPrompt();
         }
         
         checkDailyReset(); 
@@ -283,6 +285,9 @@ function submitHeroName() {
     // 立刻存檔上傳雲端，以免重整後又被當成新手
     saveGame(); 
     showToast(`歡迎加入，勇者 ${currentUser}！`, "success");
+    
+    // ⭐️ 加在這裡：新手正式進大廳後，跳出 iOS 提示
+    checkAndShowIOSPrompt();
 }
 
 
@@ -1347,20 +1352,18 @@ function showFloatingText(text, color = "#f1c40f") {
 loadAssets();
 
 
-// ==========================================
-    // 🍎 偵測 iOS 設備並顯示「加入主畫面」提示
-    // ==========================================
+// === 🍎 召喚 iOS 安裝提示 (延遲 1 秒，等大廳載入完畢) ===
+function checkAndShowIOSPrompt() {
     const isIos = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
-    // iOS Safari 專屬判斷屬性，如果是從桌面圖示開啟，standalone 會是 true
     const isStandalone = window.navigator.standalone === true; 
 
-    // 如果是 iOS，而且還沒安裝成 App (在瀏覽器裡)，就顯示教學彈窗
     if (isIos && !isStandalone) {
-        document.getElementById('ios-install-modal').classList.remove('hidden');
+        setTimeout(() => {
+            document.getElementById('ios-install-modal').classList.remove('hidden');
+        }, 1000);
     }
+}
 
-
-    
 // ==========================================
 // 🚀 統一百格事件綁定區與系統初始化
 // ==========================================
