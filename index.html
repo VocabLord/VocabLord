@@ -21,7 +21,6 @@
             </ul>
 
             <div id="auth-form-area" style="text-align: left; margin-bottom: 15px;">
-    <input type="text" id="username-input" placeholder="你的勇者姓名 (初次註冊用)" style="width: 100%; margin-bottom: 10px; padding: 10px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box;">
     <input type="email" id="email-input" placeholder="Email 帳號" style="width: 100%; margin-bottom: 10px; padding: 10px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box;">
     <input type="password" id="password-input" placeholder="密碼 (至少 6 碼)" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box;">
 </div>
@@ -336,5 +335,15 @@
 
     <script src="vocab.js"></script>
     <script type="module" src="script.js"></script>
+
+
+    <div id="name-prompt-modal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; z-index: 8000;">
+    <div style="background: white; padding: 30px; border-radius: 20px; text-align: center; border: 5px solid #3498db; max-width: 350px; width: 85%; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+        <h2 style="color: #2980b9; margin-top: 0;">⚔️ 命名你的勇者</h2>
+        <p style="color: #7f8c8d; font-size: 0.9em; margin-bottom: 20px;">歡迎來到字彙領主的世界！<br>請為你的農場主人取個響亮的名字吧：</p>
+        <input type="text" id="new-hero-name-input" placeholder="輸入勇者姓名..." style="width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 10px; border: 2px solid #bdc3c7; font-size: 1.1em; text-align: center; box-sizing: border-box;">
+        <button id="btn-submit-hero-name" style="width: 100%; padding: 12px; background: #3498db; color: white; border: none; border-radius: 12px; font-weight: bold; font-size: 1.1em; cursor: pointer; box-shadow: 0 4px 0 #2980b9;">確認命名</button>
+    </div>
+</div>
 </body>
 </html>

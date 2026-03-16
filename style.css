@@ -363,3 +363,29 @@ body.is-pro #ui-overlays { left: 20px; }
     80% { transform: translateY(-80px) scale(1); opacity: 1; }
     100% { transform: translateY(-100px) scale(1); opacity: 0; }
 }
+
+/* ==========================================
+   📱 手機版登入畫面與版面優化補丁
+   ========================================== */
+#login-screen {
+    /* 允許畫面太長時可以上下滑動 */
+    overflow-y: auto;
+    /* 讓內容從上方開始排，畫面不夠大時才不會被上下切掉 */
+    align-items: flex-start; 
+    padding: 20px 10px;
+    box-sizing: border-box;
+}
+
+.login-box {
+    /* 確保有足夠的上下邊距 */
+    margin: 20px auto; 
+    max-height: none;
+}
+
+@media (max-width: 480px) {
+    /* 在小手機上稍微縮小字體和內距，爭取更多空間 */
+    .login-box { padding: 20px 15px; }
+    .epic-title { font-size: 1.6em; }
+    .game-highlights { font-size: 0.9em; padding-left: 20px; margin-bottom: 15px; }
+    #login-pet-img { width: 70px; margin-bottom: 5px; }
+}

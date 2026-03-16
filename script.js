@@ -199,7 +199,42 @@ function saveGame() {
     }
 }
 
-// === 升級版：登入與雙重救援邏輯 ===
+
+// === 超順暢註冊 (拔除強制驗證，秒進遊戲取名) ===
+async function register() {
+    const email = document.getElementById('email-input').value.trim();
+    const password = document.getElementById('password-input').value;
+    const btn = document.getElementById('btn-register');
+
+    if (!email || !password) return showToast("註冊需填寫 Email 與密碼！", "error");
+    if (password.length < 6) return showToast("密碼太短囉，至少需要 6 個字元！", "error");
+
+    btn.innerText = "註冊中..."; btn.disabled = true;
+
+    try {
+        await createUserWithEmailAndPassword(window.auth, email, password);
+
+        // 註冊成功，直接存檔並記憶 Email，不把玩家踢出去了！
+        await syncSaveToCloud();
+        localStorage.setItem('last_email_vocablord', email);
+        
+        // 直接切換畫面到大廳
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('world-map-screen').classList.remove('hidden');
+
+        // 觸發新手命名彈窗
+        document.getElementById('name-prompt-modal').classList.remove('hidden');
+
+    } catch (error) {
+        console.error(error);
+        if (error.code === 'auth/email-already-in-use') showToast("註冊失敗：這個 Email 已經被註冊過囉！", "error");
+        else showToast("註冊失敗，請檢查格式", "error");
+    } finally {
+        btn.innerText = "註冊"; btn.disabled = false;
+    }
+}
+
+// === 超順暢登入 (拔除 emailVerified 檢查) ===
 async function login() {
     const email = document.getElementById('email-input').value.trim();
     const password = document.getElementById('password-input').value;
@@ -211,32 +246,23 @@ async function login() {
 
     try {
         await signInWithEmailAndPassword(window.auth, email, password);
+
+        // ⭐️ 這裡已經把煩人的 !user.emailVerified 檢查刪掉了！直接放行！
+
+        await syncLoadFromCloud();
+        localStorage.setItem('last_email_vocablord', email);
         
-        // 1. 優先從雲端下載存檔
-        const cloudSuccess = await syncLoadFromCloud();
-        
-        // 2. 如果雲端沒資料 (或被規則擋住)，啟動本地備用救援機制！
-        if (!cloudSuccess) {
-            let localBackup = null;
-            for (let i = 0; i < localStorage.length; i++) {
-                let key = localStorage.key(i);
-                if (key.startsWith('vocabMaster_')) {
-                    localBackup = JSON.parse(localStorage.getItem(key));
-                    break; 
-                }
-            }
-            if (localBackup) {
-                Object.assign(gameState, localBackup);
-                showToast("已從瀏覽器恢復本地備用進度！", "info");
-            }
-        }
-        
-        currentUser = gameState.playerName || "勇者";
-        document.getElementById('hub-player-name').innerText = currentUser;
-        
-        showToast("登入成功！歡迎回來", "success");
         document.getElementById('login-screen').classList.add('hidden');
         document.getElementById('world-map-screen').classList.remove('hidden');
+
+        // 檢查是不是沒取名的新手
+        if (!gameState.playerName) {
+            document.getElementById('name-prompt-modal').classList.remove('hidden');
+        } else {
+            currentUser = gameState.playerName;
+            document.getElementById('hub-player-name').innerText = currentUser;
+            showToast("登入成功！歡迎回來", "success");
+        }
         
         checkDailyReset(); 
         document.getElementById('in-game-difficulty').value = gameState.difficulty;
@@ -249,48 +275,25 @@ async function login() {
     }
 }
 
-// === 全新的註冊邏輯 ===
-async function register() {
-    const email = document.getElementById('email-input').value.trim();
-    const password = document.getElementById('password-input').value;
-    const nickname = document.getElementById('username-input').value.trim();
-    const btn = document.getElementById('btn-register');
+// === 新手命名確認動作 ===
+function submitHeroName() {
+    const newName = document.getElementById('new-hero-name-input').value.trim();
+    if (!newName) return showToast("名字不能為空喔！", "error");
 
-    if (!email || !password || !nickname) return showToast("註冊需填寫姓名、Email 與密碼！", "error");
-    if (password.length < 6) return showToast("密碼太短囉，至少需要 6 個字元！", "error");
+    // 把名字正式寫入遊戲狀態
+    gameState.playerName = newName;
+    currentUser = newName;
 
-    btn.innerText = "註冊中..."; btn.disabled = true;
+    // 更新大廳顯示並關閉視窗
+    document.getElementById('hub-player-name').innerText = currentUser;
+    document.getElementById('name-prompt-modal').classList.add('hidden');
 
-    try {
-        // 呼叫 Firebase 警衛建立新帳號
-        await createUserWithEmailAndPassword(window.auth, email, password);
-        
-        // 把名字記在 gameState 裡面
-        currentUser = nickname;
-        gameState.playerName = nickname;
-        
-        // 第一次註冊，把乾淨的初始狀態存上雲端
-        await syncSaveToCloud();
-        
-        showToast("註冊成功！準備進入農場", "success");
-        document.getElementById('hub-player-name').innerText = currentUser;
-        document.getElementById('login-screen').classList.add('hidden');
-        document.getElementById('world-map-screen').classList.remove('hidden');
-        
-        checkDailyReset(); 
-        document.getElementById('in-game-difficulty').value = gameState.difficulty;
-        migrateGrid();
-    } catch (error) {
-        console.error(error);
-        if (error.code === 'auth/email-already-in-use') {
-            showToast("註冊失敗：這個 Email 已經被註冊過囉！", "error");
-        } else {
-            showToast("註冊失敗，請檢查格式", "error");
-        }
-    } finally {
-        btn.innerText = "註冊"; btn.disabled = false;
-    }
+    // 立刻存檔上傳雲端，以免重整後又被當成新手
+    saveGame(); 
+    showToast(`歡迎加入，勇者 ${currentUser}！`, "success");
 }
+
+
 
 function enterRealm(realmId) {
     if (realmId !== 'english') { showToast("🚧 此領域正在積極建設中，敬請期待！", "info"); return; }
@@ -1407,4 +1410,8 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('btn-verify-license')?.addEventListener('click', verifyLicenseKey);
     document.getElementById('btn-shield-false')?.addEventListener('click', () => resolveShieldPrompt(false));
     document.getElementById('btn-shield-true')?.addEventListener('click', () => resolveShieldPrompt(true));
+
+
+// 在 document.addEventListener("DOMContentLoaded", () => { ... 裡面加上這一行：
+document.getElementById('btn-submit-hero-name')?.addEventListener('click', submitHeroName);
 });
