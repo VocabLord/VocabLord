@@ -365,27 +365,63 @@ body.is-pro #ui-overlays { left: 20px; }
 }
 
 /* ==========================================
-   📱 手機版登入畫面與版面優化補丁
+   📱 手機版登入畫面：垂直極限壓縮補丁
    ========================================== */
-#login-screen {
-    /* 允許畫面太長時可以上下滑動 */
-    overflow-y: auto;
-    /* 讓內容從上方開始排，畫面不夠大時才不會被上下切掉 */
-    align-items: flex-start; 
-    padding: 20px 10px;
-    box-sizing: border-box;
-}
-
-.login-box {
-    /* 確保有足夠的上下邊距 */
-    margin: 20px auto; 
-    max-height: none;
-}
-
 @media (max-width: 480px) {
-    /* 在小手機上稍微縮小字體和內距，爭取更多空間 */
-    .login-box { padding: 20px 15px; }
-    .epic-title { font-size: 1.6em; }
-    .game-highlights { font-size: 0.9em; padding-left: 20px; margin-bottom: 15px; }
-    #login-pet-img { width: 70px; margin-bottom: 5px; }
+    /* 1. 縮減登入框整體的內距 (Padding) */
+    .login-box { 
+        padding: 15px 20px; 
+        margin: 10px auto; 
+    }
+
+    /* 2. 縮小 Logo 並且消除它下方的空白 */
+    #login-pet-img { 
+        width: 55px; 
+        margin-bottom: 0; 
+    }
+
+    /* 3. 壓縮主標題與副標題的字體和行高 */
+    .epic-title { 
+        font-size: 1.4em; 
+        margin: 5px 0; 
+        line-height: 1.2;
+    }
+    .subtitle { 
+        font-size: 0.65em; 
+    }
+
+    /* 4. 隱藏「建議使用手機遊玩」的提示（因為已經在手機上了） */
+    .device-hint {
+        display: none;
+    }
+
+    /* 5. 大幅壓縮遊戲特色的字體、行高與外距 */
+    .game-highlights { 
+        font-size: 0.8em; 
+        padding-left: 20px; 
+        margin: 8px 0; 
+    }
+    .game-highlights li {
+        margin-bottom: 3px;
+    }
+
+    /* 6. 壓扁輸入框與按鈕的空間 */
+    #auth-form-area {
+        margin-bottom: 10px;
+    }
+    #auth-form-area input {
+        padding: 8px;
+        margin-bottom: 6px;
+    }
+    .start-btn, .future-btn, button[onclick="showTutorial()"] {
+        padding: 10px !important;
+        margin-top: 8px !important;
+        font-size: 1em !important;
+    }
+
+    /* 7. 縮小底部作者標籤 */
+    .author-tag {
+        margin-top: 10px;
+        font-size: 0.7em;
+    }
 }
