@@ -110,8 +110,8 @@ const assets = {
     radish_01: 'assets/Objects/GardenBed_Radish_01.png', radish_02: 'assets/Objects/GardenBed_Radish_02.png',
     // 補齊缺少的三種作物生長圖 (需確認 Objects 資料夾內有這些檔案)
     beetroot_01: 'assets/Objects/GardenBed_Beetroot_01.png', beetroot_02: 'assets/Objects/GardenBed_Beetroot_02.png',
-    cucumber_01: 'assets/Objects/GardenBed_Cucumber_01.png', cucumber_02: 'assets/Objects/GardenBed_Cucumber_02.png',
-    onion_01: 'assets/Objects/GardenBed_Onion_01.png', onion_02: 'assets/Objects/GardenBed_Onion_02.png',
+    cucumber_01: 'assets/Objects/GardenBed_Cucumbers_01.png', cucumber_02: 'assets/Objects/GardenBed_Cucumbers_02.png',
+    onion_01: 'assets/Objects/GardenBed_Onions_01.png', onion_02: 'assets/Objects/GardenBed_Onions_02.png',
 
     // --- 3. 寵物角色 ---
     pig_Up: 'assets/Characters/Pig_Up.png', pig_Down: 'assets/Characters/Pig_Down.png', pig_Left: 'assets/Characters/Pig_Left.png', pig_Right: 'assets/Characters/Pig_Right.png', pig_Dead: 'assets/Characters/Pig_Dead.png',
@@ -1070,8 +1070,8 @@ function draw() {
                 else if (x === 0 || x === COLS - 1) fenceImg = images.fenceV;
 
                 if (fenceImg && fenceImg.isLoaded) {
-                    // 柵欄比泥土稍微高出一點點產生深度感 (OFFSET_Y_FIX - 2)
-                    ctx.drawImage(fenceImg, px, py + OFFSET_Y_FIX - 2, TILE_SIZE, TILE_SIZE);
+                    // 柵欄比泥土稍微高出一點點產生深度感 (OFFSET_Y_FIX - 5)
+                    ctx.drawImage(fenceImg, px, py + OFFSET_Y_FIX - 5, TILE_SIZE, TILE_SIZE);
                 }
             } else {
                 // D. 繪製植物
