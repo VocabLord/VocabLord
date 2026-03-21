@@ -990,7 +990,12 @@ function moveAllPets() {
         let p = activePets[pid]; let stat = gameState.petStats[pid]; let speed = getPetSpeed(stat.lv);
         if (gameState.energy >= 90) speed *= 3.0; 
         if (gameState.energy <= 0) { p.dir = 'Dead'; return; }
-        if (p.state === 'idle') { p.timer--; if (p.timer <= 0) { p.targetX = Math.random()*(COLS-1); p.targetY = Math.random()*(ROWS-1); p.state = 'walk'; } } 
+        if (p.state === 'idle') {
+             p.timer--;
+              if (p.timer <= 0) { 
+                p.targetX = Math.random()*(COLS-1); 
+                p.targetY = Math.random()*(ROWS-1); 
+                p.state = 'walk'; } } 
         else {
             let dx = p.targetX - p.x, dy = p.targetY - p.y, dist = Math.sqrt(dx*dx + dy*dy);
             if (dist > speed) { p.x += (dx/dist)*speed; p.y += (dy/dist)*speed; p.dir = Math.abs(dx)>Math.abs(dy)?(dx>0?'Right':'Left'):(dy>0?'Down':'Up'); checkPetCollision(p); } 
@@ -1027,86 +1032,72 @@ function tick() {
     requestAnimationFrame(tick);
 }
 
-// === 2. 繪製邏輯：精準對齊交界線 (完整版) ===
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const VERTICAL_STEP = TILE_SIZE * 0.6; 
-    const OFFSET_Y_FIX = -15; // ⭐️ 與 handleInteraction 同步下壓 8 像素
-    
+    const OFFSET_Y_FIX = (typeof window.debugY !== 'undefined') ? window.debugY : -26;
+    const stepMultiplier = (typeof window.debugStep !== 'undefined') ? window.debugStep : 0.66;
+    const VERTICAL_STEP = TILE_SIZE * stepMultiplier;
+
     const totalFarmWidth = COLS * TILE_SIZE;
     const totalFarmHeight = (ROWS - 1) * VERTICAL_STEP + TILE_SIZE;
-
     const offsetX = (canvas.width - totalFarmWidth) / 2;
     const offsetY = (canvas.height - totalFarmHeight) / 2;
 
-    // 逐行繪製 (Z-Order 排序)
+    // --- 第一層：繪製所有草地 (底層) ---
+    gameState.farmTiles.forEach((row, y) => {
+        row.forEach((tile, x) => {
+            let px = offsetX + x * TILE_SIZE;
+            let py = offsetY + y * VERTICAL_STEP;
+            let grassImg = (x + y) % 2 === 0 ? images.grass_light : images.grass_dark;
+            if (grassImg && grassImg.isLoaded) {
+                ctx.drawImage(grassImg, px, py, TILE_SIZE, TILE_SIZE);
+            }
+        });
+    });
+
+    // --- 第二層：繪製所有泥土與植物 (中層) ---
+    // 這樣泥土就不會被任何草地擋住了
     gameState.farmTiles.forEach((row, y) => {
         row.forEach((tile, x) => {
             let px = offsetX + x * TILE_SIZE;
             let py = offsetY + y * VERTICAL_STEP;
 
-            // A. 繪製棋盤草地 (底層背景不偏移)
-            let grassImg = (x + y) % 2 === 0 ? images.grass_light : images.grass_dark;
-            if (grassImg && grassImg.isLoaded) {
-                ctx.drawImage(grassImg, px, py, TILE_SIZE, TILE_SIZE);
-            }
-
-            // B. 繪製泥土 (GardenBed_Blank)
-            // 將泥土向下移動 OFFSET_Y_FIX，使其對齊草地底線
+            // 繪製泥土
             if (images.soil && images.soil.isLoaded) {
                 ctx.drawImage(images.soil, px, py + OFFSET_Y_FIX, TILE_SIZE, TILE_SIZE);
             }
 
-            // C. 繪製柵欄
-            const isBorder = (y === 0 || y === ROWS - 1 || x === 0 || x === COLS - 1);
-            if (isBorder) {
-                let fenceImg = null;
-                if (y === 0 && x === 0) fenceImg = images.fenceTL;
-                else if (y === 0 && x === COLS - 1) fenceImg = images.fenceTR;
-                else if (y === ROWS - 1 && x === 0) fenceImg = images.fenceBL;
-                else if (y === ROWS - 1 && x === COLS - 1) fenceImg = images.fenceBR;
-                else if (y === 0 || y === ROWS - 1) fenceImg = images.fenceH;
-                else if (x === 0 || x === COLS - 1) fenceImg = images.fenceV;
-
-                if (fenceImg && fenceImg.isLoaded) {
-                    // 柵欄比泥土稍微高出一點點產生深度感 (OFFSET_Y_FIX - 5)
-                    ctx.drawImage(fenceImg, px, py + OFFSET_Y_FIX - 10, TILE_SIZE, TILE_SIZE);
+            // 繪製植物
+            if (tile.plant) {
+                let k = tile.progress >= 100 ? tile.type + '_02' : tile.type + '_01';
+                if (images[k] && images[k].isLoaded) {
+                    ctx.drawImage(images[k], px, py + OFFSET_Y_FIX, TILE_SIZE, TILE_SIZE);
                 }
-            } else {
-                // D. 繪製植物
-                if (tile.plant) {
-                    let k = tile.progress >= 100 ? tile.type + '_02' : tile.type + '_01';
-                    if (images[k] && images[k].isLoaded) {
-                    ctx.drawImage(images[k], px, py + OFFSET_Y_FIX - 5, TILE_SIZE, TILE_SIZE);
-                    }
-                    
-                    // 進度條同步偏移
-                    if (tile.progress < 100) {
-                        ctx.fillStyle = (gameState.energy >= 90) ? "#f1c40f" : "#4caf50";
-                        ctx.fillRect(px + TILE_SIZE * 0.15, py + OFFSET_Y_FIX + TILE_SIZE * 0.8, (tile.progress / 100) * (TILE_SIZE * 0.7), TILE_SIZE * 0.08);
-                    }
+                
+                // 繪製進度條
+                if (tile.progress < 100) {
+                    ctx.fillStyle = "rgba(0,0,0,0.3)"; // 底色
+                    ctx.fillRect(px + TILE_SIZE * 0.15, py + OFFSET_Y_FIX + TILE_SIZE * 0.8, TILE_SIZE * 0.7, TILE_SIZE * 0.08);
+                    ctx.fillStyle = (gameState.energy >= 90) ? "#f1c40f" : "#4caf50"; // 進度
+                    ctx.fillRect(px + TILE_SIZE * 0.15, py + OFFSET_Y_FIX + TILE_SIZE * 0.8, (tile.progress / 100) * (TILE_SIZE * 0.7), TILE_SIZE * 0.08);
                 }
             }
         });
     });
 
-    // E. 繪製寵物
+    // --- 第三層：繪製所有寵物 (頂層) ---
     let sortedPets = [...gameState.petsOwned];
     sortedPets.sort((a, b) => activePets[a].y - activePets[b].y); 
     sortedPets.forEach(petId => {
         let p = activePets[petId]; 
         let pSize = getPetSize(gameState.petStats[petId].lv);
         let drawX = offsetX + p.x * TILE_SIZE;
-        let drawY = offsetY + p.y * VERTICAL_STEP + OFFSET_Y_FIX; // ⭐️ 對齊泥土高度
+        let drawY = offsetY + p.y * VERTICAL_STEP + OFFSET_Y_FIX; 
         
         let imgKey = petId + "_" + p.dir;
         if (images[imgKey] && images[imgKey].isLoaded) {
             ctx.drawImage(images[imgKey], drawX - (pSize - TILE_SIZE) / 2, drawY - (pSize - TILE_SIZE), pSize, pSize);
-        } else {
-            ctx.font = (pSize / 1.5) + "px Arial"; 
-            ctx.textAlign = "center"; ctx.textBaseline = "middle"; 
-            ctx.fillText(petId === 'cat' ? "🐱" : (petId === 'fox' ? "🦊" : "🐷"), drawX + TILE_SIZE / 2, drawY + TILE_SIZE / 2); 
         }
     });
 }
@@ -1581,12 +1572,6 @@ document.addEventListener("DOMContentLoaded", () => {
 // 全域函數：一鍵播種邏輯
 // ==========================================
 window.confirmAutoPlant = function(seedType) {
-
-     // 1. 防呆：如果網格沒初始化，先初始化
-    if (!gameState.farmTiles || gameState.farmTiles.length === 0) {
-        migrateGrid();
-    }
-
     document.getElementById('seed-select-modal').classList.add('hidden');
     const seedPrices = { 'tomato': 10, 'radish': 12, 'carrot': 15, 'beetroot': 18, 'cucumber': 20, 'onion': 22 };
     const cost = seedPrices[seedType] || 10; 
@@ -1595,8 +1580,9 @@ window.confirmAutoPlant = function(seedType) {
     
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
-            const isFenceArea = (r === 0 || r === ROWS - 1 || c === 0 || c === COLS - 1);
-            if (isFenceArea) continue;
+            // 🌟 刪除下面這兩行，讓全地塊都能種！
+            // const isFenceArea = (r === 0 || r === ROWS - 1 || c === 0 || c === COLS - 1);
+            // if (isFenceArea) continue;
 
             let tile = gameState.farmTiles[r][c];
             if (!tile.plant && gameState.coins >= cost) {
@@ -1608,6 +1594,7 @@ window.confirmAutoPlant = function(seedType) {
             }
         }
     }
+    // ... 提示訊息 ...
     
     if (plantedCount > 0) {
         showToast(`成功播種 ${plantedCount} 塊地！花費 ${plantedCount * cost} 金幣`, "success");
