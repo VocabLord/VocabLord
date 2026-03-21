@@ -49,26 +49,26 @@ body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: 
 .pig-avatar-container { position: relative; width: 95px; height: 95px; background: #fdf2e9; border: 4px solid #f39c12; border-radius: 20px; cursor: pointer; flex-shrink: 0; overflow: visible; box-shadow: 0 4px 0 #d35400; }
 #pig-img { width: 100%; height: 100%; object-fit: contain; display: block; border-radius: 15px; }
 .switch-icon-hint {
-    position: absolute; 
-    bottom: -12px; /* 剛好一半卡在外框邊緣 */
-    left: 50%; 
-    transform: translateX(-50%);
-    background: linear-gradient(135deg, #f1c40f, #f39c12); /* 亮眼的漸層金橘色 */
-    color: white;
-    padding: 4px 14px; 
-    border-radius: 20px; 
-    border: 3px solid white; /* 經典遊戲徽章的質感白邊 */
-    font-size: 0.85em; 
-    font-weight: 900; 
-    white-space: nowrap;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.3); 
-    text-shadow: 0 1px 2px rgba(0,0,0,0.3); /* 讓白色文字在亮色背景也清晰 */
+    position: absolute !important; 
+    bottom: -10px !important; 
+    left: 50% !important; 
+    transform: translateX(-50%) !important;
+    background: linear-gradient(135deg, #f1c40f, #f39c12) !important; 
+    color: white !important;
+    padding: 4px 10px !important; 
+    border-radius: 20px !important; 
+    border: 2px solid white !important; 
+    font-size: 0.8em !important; 
+    font-weight: 900 !important; 
+    white-space: nowrap !important;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3) !important; 
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3) !important;
     transition: 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    z-index: 5;
+    z-index: 10 !important;
 }
 .pig-avatar-container:active .switch-icon-hint {
-    transform: translateX(-50%) scale(0.9);
-    background: linear-gradient(135deg, #f39c12, #d35400);
+    transform: translateX(-50%) scale(0.9) !important;
+    background: linear-gradient(135deg, #f39c12, #d35400) !important;
 }
 
 .user-info { flex: 1; padding-left: 15px; display: flex; flex-direction: column; justify-content: center; }
@@ -130,14 +130,53 @@ body.is-pro #ui-overlays { left: 20px; }
 .plant-btn { background: linear-gradient(135deg, #27ae60, #2ecc71); }
 .harvest-btn { background: linear-gradient(135deg, #8e44ad, #9b59b6); }
 
-/* ================= 彈窗與功能面板 ================= */
-#floating-panel { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 400px; max-height: 80vh; background: white; border: 4px solid #5d4037; border-radius: 20px; padding: 25px; z-index: 100; box-shadow: 0 10px 40px rgba(0,0,0,0.6); overflow-y: auto; }
+/* ================= 彈窗與功能面板 (加上強制圖層修復) ================= */
+#floating-panel { position: fixed !important; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 400px; max-height: 80vh; background: white; border: 4px solid #5d4037; border-radius: 20px; padding: 25px; z-index: 9999 !important; box-shadow: 0 10px 40px rgba(0,0,0,0.6); overflow-y: auto; }
 .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 12px; margin-bottom: 18px; font-weight: bold; font-size: 1.3em; color: #333; }
 .panel-header button { background: none; border: none; font-size: 1.6em; cursor: pointer; color: #e74c3c; font-weight: bold; padding: 5px; line-height: 1; }
 .shop-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee; font-size: 1.05em; }
 .shop-item button { padding: 10px 18px; border: none; border-radius: 10px; color: white; cursor: pointer; font-weight: bold; font-size: 1em; transition: 0.1s;}
 .shop-item button:active { transform: scale(0.95); }
 .shop-item button:disabled { background: #ccc !important; cursor: not-allowed; transform: none; box-shadow: none !important; border: none !important;}
+
+/* ================= 統用彈窗樣式 (修復畫面跑到後面的問題) ================= */
+.overlay-modal {
+    position: fixed !important;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000 !important;
+}
+
+.modal-content {
+    background: white;
+    padding: 30px;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 450px;
+    max-height: 85vh;
+    overflow-y: auto;
+    position: relative;
+    text-align: center;
+    border: 5px solid #3498db;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.modal-close-btn {
+    margin-top: 15px;
+    background: #95a5a6;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-size: 1.1em;
+    font-weight: bold;
+    cursor: pointer;
+    width: 100%;
+}
 
 /* 未來更新視窗 */
 #coming-soon-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); display: flex; justify-content: center; align-items: center; z-index: 2000; }
@@ -210,8 +249,6 @@ body.is-pro #ui-overlays { left: 20px; }
 .hidden-desktop { display: none; }
 .mobile-hidden { display: none !important; }
 
-/* 移除最前面不明的 } */
-
 /* --- 手機版/直式螢幕專用排版 --- */
 @media (max-width: 1024px), (orientation: portrait) {
     #game-container { width: 100vw; height: 100vh; height: 100dvh; max-width: none; max-height: none; border: none; border-radius: 0; display: flex; flex-direction: column; }
@@ -246,8 +283,7 @@ body.is-pro #ui-overlays { left: 20px; }
     
     /* 浮動面板縮小以適應手機 */
     #floating-panel { width: 95%; padding: 15px; }
-} /* 👈 這裡是你原本漏掉的右大括號，非常重要！ */
-
+}
 
 /* =========================================
    🛠️ 最終版 UI 修復 (強制覆蓋錯誤排版)
@@ -430,4 +466,295 @@ body.is-pro #ui-overlays { left: 20px; }
         font-size: 0.7em;
     }
 
+}
+
+/* 🌟 左下角種子選擇列樣式 */
+#seed-selection-bar {
+    position: absolute;
+    bottom: 85px; /* 避開底部導覽列 */
+    left: 15px;
+    display: flex;
+    flex-direction: column; /* 直排顯示，更有領主感 */
+    gap: 10px;
+    z-index: 100;
+}
+
+.seed-select-item {
+    background: rgba(255, 255, 255, 0.9);
+    border: 3px solid #bdc3c7;
+    border-radius: 12px;
+    padding: 5px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: 0.2s;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    min-width: 100px;
+}
+
+.seed-select-item.active {
+    border-color: #f1c40f;
+    background: #fff9c4;
+    transform: scale(1.05) translateX(5px);
+    box-shadow: 0 0 15px rgba(241, 196, 15, 0.6);
+}
+
+.seed-icon { font-size: 1.4em; }
+.seed-label { font-weight: bold; color: #2c3e50; font-size: 0.9em; flex: 1; }
+.seed-price { font-size: 0.75em; color: #e67e22; font-weight: 900; }
+
+/* 🌟 金蛋動畫調整 */
+#gacha-egg-img {
+    width: 220px !important; /* 變大顆一點 */
+    /* 支點設在蛋的中間 */
+    transform-origin: center center !important; 
+}
+
+.gacha-shaking {
+    display: block !important;
+    /* 搖晃頻率減慢：從原本的 0.15s 改為 1.5s，ease-in-out 讓動作更柔和 */
+    animation: egg-slow-swing 1.5s infinite ease-in-out;
+}
+
+@keyframes egg-slow-swing {
+    0% { transform: translate(-50%, -50%) rotate(-10deg); }
+    50% { transform: translate(-50%, -50%) rotate(10deg); }
+    100% { transform: translate(-50%, -50%) rotate(-10deg); }
+}
+
+/* Gacha 修正：確保結果區在最上層 */
+#gacha-result-box {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10001;
+    width: 90%;
+    max-width: 450px;
+}
+
+#gacha-result-list {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr); /* 十抽時每列五個 */
+    gap: 10px;
+    margin: 15px 0;
+}
+
+/* 左下角伸縮按鈕樣式 */
+#seed-selector-container {
+    position: absolute;
+    bottom: 85px;
+    left: 15px;
+    z-index: 999;
+    display: flex;
+    flex-direction: column-reverse; /* 往上彈出 */
+    align-items: flex-start;
+}
+
+.seed-main-btn {
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    background: #f39c12;
+    border: 3px solid white;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    transition: 0.3s;
+}
+
+.seed-main-btn .icon { font-size: 24px; }
+.seed-main-btn .label { font-size: 10px; color: white; font-weight: bold; }
+
+/* 種子選單：伸縮邏輯 */
+#seed-menu {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    padding: 10px;
+    margin-bottom: 10px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: all 0.3s ease;
+    transform-origin: bottom left;
+}
+
+.seed-menu-hidden {
+    opacity: 0;
+    transform: scale(0);
+    pointer-events: none;
+    height: 0;
+}
+
+.seed-item-btn {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 15px;
+    border: 2px solid #ddd;
+    border-radius: 10px;
+    background: white;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.seed-item-btn.active {
+    border-color: #27ae60;
+    background: #e8f8f5;
+}
+
+/* ==========================================
+   ✨ 彈窗按鈕美化 (領主選單、種子選擇)
+   ========================================== */
+.menu-btn {
+    padding: 15px;
+    border: none;
+    border-radius: 15px;
+    color: white;
+    font-weight: bold;
+    font-size: 1.2em;
+    cursor: pointer;
+    box-shadow: 0 6px 0 rgba(0,0,0,0.2);
+    transition: 0.1s;
+}
+.menu-btn:active {
+    transform: translateY(6px);
+    box-shadow: none;
+}
+
+.seed-btn {
+    background: #f8f9fa;
+    border: 3px solid #bdc3c7;
+    border-radius: 12px;
+    padding: 15px;
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #2c3e50;
+    cursor: pointer;
+    transition: 0.1s;
+    box-shadow: 0 5px 0 #ecf0f1;
+}
+.seed-btn:active {
+    transform: translateY(5px);
+    box-shadow: none;
+    background: #e8f8f5;
+    border-color: #2ecc71;
+}
+
+/* ==========================================
+   🎒 左下角裝備按鈕定位 (綁定在農場內)
+   ========================================== */
+#seed-selector-container {
+    position: absolute;
+    bottom: 25px;   /* 電腦版距離底部 */
+    left: 20px;     /* 電腦版距離左邊 */
+    z-index: 99;
+}
+
+@media (max-width: 1024px) {
+    #seed-selector-container {
+        bottom: 85px; /* 手機版避開底部快捷鍵 */
+        left: 15px;
+    }
+}
+
+/* ==========================================
+   ✨ 測驗區與功能按鈕美化 (發音、模式切換)
+   ========================================== */
+.mode-label {
+    display: flex; align-items: center; justify-content: center;
+    padding: 12px 15px; border-radius: 15px;
+    font-weight: 900; font-size: 1em; cursor: pointer;
+    transition: 0.1s; width: 90%;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.1);
+}
+.mode-label:active { transform: translateY(4px); box-shadow: none !important; }
+.mode-label input[type="checkbox"] { transform: scale(1.4); margin-right: 8px; cursor: pointer; accent-color: currentColor; }
+
+.sound-btn {
+    border: none; border-radius: 12px; color: white;
+    font-weight: bold; font-size: 1.05em; padding: 12px 20px;
+    cursor: pointer; transition: 0.1s;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+}
+.sound-btn:active { transform: translateY(4px); box-shadow: none !important; }
+
+/* 彈窗內的種子選擇按鈕 */
+.seed-btn {
+    background: #f8f9fa; border: 3px solid #bdc3c7; border-radius: 12px;
+    padding: 15px; font-size: 1.2em; font-weight: bold; color: #2c3e50;
+    cursor: pointer; transition: 0.1s; box-shadow: 0 5px 0 #ecf0f1;
+}
+.seed-btn:active {
+    transform: translateY(5px); box-shadow: none;
+    background: #e8f8f5; border-color: #2ecc71;
+}
+
+/* ==========================================
+   🎒 左下角裝備按鈕定位與美化
+   ========================================== */
+#seed-selection-bar {
+    position: absolute; bottom: 25px; left: 20px; z-index: 100;
+}
+.seed-main-btn {
+    width: 65px; height: 65px; border-radius: 50%;
+    background: #f39c12; border: 4px solid white;
+    box-shadow: 0 6px 15px rgba(0,0,0,0.4); cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    transition: 0.2s; padding: 0; outline: none; text-align: center;
+}
+.seed-main-btn:active { transform: scale(0.9) translateY(5px); box-shadow: 0 2px 5px rgba(0,0,0,0.4); }
+
+@media (max-width: 1024px) {
+    #seed-selection-bar { bottom: 85px; left: 15px; }
+}
+
+
+/* ==========================================
+   ✨ 測驗區與功能按鈕美化 (發音、模式切換)
+   ========================================== */
+.mode-label {
+    display: flex; align-items: center; justify-content: center;
+    padding: 12px 15px; border-radius: 15px;
+    font-weight: 900; font-size: 1em; cursor: pointer;
+    transition: 0.1s; width: 90%;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.1);
+}
+.mode-label:active { transform: translateY(4px); box-shadow: none !important; }
+.mode-label input[type="checkbox"] { transform: scale(1.4); margin-right: 8px; cursor: pointer; accent-color: currentColor; }
+
+.sound-btn {
+    border: none; border-radius: 12px; color: white;
+    font-weight: bold; font-size: 1.05em; padding: 12px 20px;
+    cursor: pointer; transition: 0.1s;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+}
+.sound-btn:active { transform: translateY(4px); box-shadow: none !important; }
+
+/* 彈窗內的種子選擇按鈕 */
+.seed-btn {
+    background: #f8f9fa; border: 3px solid #bdc3c7; border-radius: 12px;
+    padding: 15px; font-size: 1.2em; font-weight: bold; color: #2c3e50;
+    cursor: pointer; transition: 0.1s; box-shadow: 0 5px 0 #ecf0f1;
+}
+.seed-btn:active {
+    transform: translateY(5px); box-shadow: none;
+    background: #e8f8f5; border-color: #2ecc71;
+}
+
+/* ==========================================
+   🎒 左下角裝備按鈕定位與美化 (讓他浮出地表！)
+   ========================================== */
+#seed-selection-bar {
+    position: absolute; bottom: 25px; left: 20px; z-index: 100;
+}
+.seed-main-btn {
+    width: 65px; height: 65px; border-radius: 50%;
+    background: #f39c12; border: 4px solid white;
+    box-shadow: 0 6px 15px rgba(0,0,0,0.4); cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    transition: 0.2s; padding: 0; outline: none; text-align: center;
+}
+.seed-main-btn:active { transform: scale(0.9) translateY(5px); box-shadow: 0 2px 5px rgba(0,0,0,0.4); }
+
+@media (max-width: 1024px) {
+    #seed-selection-bar { bottom: 85px; left: 15px; }
 }
