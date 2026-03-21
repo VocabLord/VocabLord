@@ -1031,8 +1031,8 @@ function tick() {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const VERTICAL_STEP = TILE_SIZE * 0.75; 
-    const OFFSET_Y_FIX = 8; // ⭐️ 與 handleInteraction 同步下壓 8 像素
+    const VERTICAL_STEP = TILE_SIZE * 0.6; 
+    const OFFSET_Y_FIX = 5; // ⭐️ 與 handleInteraction 同步下壓 8 像素
     
     const totalFarmWidth = COLS * TILE_SIZE;
     const totalFarmHeight = (ROWS - 1) * VERTICAL_STEP + TILE_SIZE;
@@ -1071,7 +1071,7 @@ function draw() {
 
                 if (fenceImg && fenceImg.isLoaded) {
                     // 柵欄比泥土稍微高出一點點產生深度感 (OFFSET_Y_FIX - 5)
-                    ctx.drawImage(fenceImg, px, py + OFFSET_Y_FIX - 5, TILE_SIZE, TILE_SIZE);
+                    ctx.drawImage(fenceImg, px, py + OFFSET_Y_FIX - 10, TILE_SIZE, TILE_SIZE);
                 }
             } else {
                 // D. 繪製植物
