@@ -4,6 +4,7 @@
 
 import { doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -250,9 +251,21 @@ async function login() {
         document.getElementById('in-game-difficulty').value = gameState.difficulty;
         migrateGrid();
     } catch (error) {
-        showToast("登入失敗：帳號或密碼錯誤", "error");
+        showToast("登入失敗：密碼錯誤！若為新玩家請按右邊的「註冊」", "error");
     } finally {
         btn.innerText = "登入"; btn.disabled = false;
+    }
+}
+
+async function resetPassword() {
+    const email = document.getElementById('email-input').value.trim();
+    if (!email) return showToast("⚠️ 請先在上方輸入你的 Email，再點擊忘記密碼！", "error");
+
+    try {
+        await sendPasswordResetEmail(window.auth, email);
+        showToast("📧 已寄出重設密碼信！請去信箱收信。", "success");
+    } catch (error) {
+        showToast("發送失敗，請確認 Email 是否正確或已註冊", "error");
     }
 }
 
@@ -1446,6 +1459,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     setInterval(saveGame, 5000);
+
+
+    document.getElementById('btn-forgot-password')?.addEventListener('click', resetPassword);
+
 
     document.getElementById('btn-login')?.addEventListener('click', login);
     document.getElementById('btn-register')?.addEventListener('click', register);
