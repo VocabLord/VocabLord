@@ -974,3 +974,7 @@ body.is-pro #ui-overlays { left: 20px; }
         max-height: calc(100vh - 120px) !important;
     }
 }
+
+#realm-opera, #realm-taiwanese-opera {
+    display: none !important;
+}

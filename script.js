@@ -1574,14 +1574,21 @@ window.drawGacha = function(count) {
 
         let results = [];
         for(let i=0; i<count; i++) {
-        let r = Math.random();
-        if (r < 0.005)     results.push({name: "改名卷軸", icon: "📜", type: "item", key: "renameScroll"}); // 0.5%
-        else if (r < 0.05) results.push({name: "催熟藥水", icon: "🧪", type: "item", key: "potion"});       // 4.5%
-        else if (r < 0.10) results.push({name: "保護傘", icon: "🛡️", type: "item", key: "shield"});       // 15%
-        else if (r < 0.22) results.push({name: "2萬金幣", icon: "💰", type: "coin", val: 20000});          // 2%
-        else if (r < 0.30) results.push({name: "1萬金幣", icon: "💰", type: "coin", val: 10000});          // 8%
-        else if (r < 0.50) results.push({name: "5千金幣", icon: "💵", type: "coin", val: 5000});           // 20%
-        else               results.push({name: "2千金幣", icon: "🪙", type: "coin", val: 2000});           // 50%
+            let r = Math.random();
+            // 0.2%：極致稀有 (UR) - 改名卷軸
+            if (r < 0.002)      results.push({name: "改名卷軸", icon: "📜", type: "item", key: "renameScroll"}); 
+            // 2%：高級道具 (SSR) - 藥水
+            else if (r < 0.022) results.push({name: "催熟藥水", icon: "🧪", type: "item", key: "potion"});       
+            // 7%：實用道具 (SR) - 保護傘
+            else if (r < 0.092) results.push({name: "保護傘", icon: "🛡️", type: "item", key: "shield"});       
+            // 3%：大獎金 (1萬) - 翻倍
+            else if (r < 0.122) results.push({name: "1萬金幣", icon: "💰", type: "coin", val: 10000});          
+            // 10%：保本獎 (5千) - 平手
+            else if (r < 0.222) results.push({name: "5千金幣", icon: "💵", type: "coin", val: 5000});           
+            // 35%：小虧獎 (1千)
+            else if (r < 0.572) results.push({name: "1千金幣", icon: "🪙", type: "coin", val: 1000});           
+            // 42.8%：血虧獎 (200) - 增加挫折感
+            else                results.push({name: "200金幣", icon: "💩", type: "coin", val: 200});            
         }
 
         results.forEach(res => {
