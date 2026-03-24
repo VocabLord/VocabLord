@@ -5,6 +5,55 @@
 import { doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
+// --- [新增] 美化版確認彈窗 ---
+function showBeautifulConfirmModal(message, callback) {
+    const overlay = document.createElement('div');
+    overlay.id = 'custom-confirm-overlay';
+    overlay.style = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center;
+        z-index: 10000; opacity: 0; transition: opacity 0.2s;
+    `;
+
+    const modal = document.createElement('div');
+    modal.style = `
+        background: white; padding: 25px; border-radius: 20px;
+        width: 320px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        transform: translateY(20px); transition: transform 0.2s;
+    `;
+
+    modal.innerHTML = `
+        <h3 style="margin-top:0; color: #2c3e50;">確認複習</h3>
+        <p style="color: #7f8c8d; line-height: 1.5;">${message}</p>
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button id="confirm-cancel" style="flex:1; padding: 12px; border-radius: 10px; border: 2px solid #bdc3c7; background: white; font-weight: bold; cursor: pointer;">取消</button>
+            <button id="confirm-ok" style="flex:1; padding: 12px; border-radius: 10px; border: none; background: #3498db; color: white; font-weight: bold; cursor: pointer; box-shadow: 0 4px 0 #2980b9;">確定</button>
+        </div>
+    `;
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    // 動態效果
+    setTimeout(() => {
+        overlay.style.opacity = '1';
+        modal.style.transform = 'translateY(0)';
+    }, 10);
+
+    const close = (result) => {
+        overlay.style.opacity = '0';
+        modal.style.transform = 'translateY(20px)';
+        setTimeout(() => {
+            overlay.remove();
+            callback(result);
+        }, 200);
+    };
+
+    document.getElementById('confirm-ok').onclick = () => close(true);
+    document.getElementById('confirm-cancel').onclick = () => close(false);
+}
+
+
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
@@ -24,6 +73,7 @@ let clouds = [
 let currentUser = "";
 let gameState = {
     coins: 100, energy: 100, combo: 0,
+    currentRealm: 'english', // <--- 加在這裡
     inventory: { carrot: 0, tomato: 0, radish: 0 },
     farmTiles: [], difficulty: "1", currentPet: "pig", 
     currentSeed: "carrot", 
@@ -204,24 +254,43 @@ function resetGameState() {
         currentSeed: "carrot", 
         petsOwned: ["pig"], 
         petStats: { pig: { lv: 1, exp: 0 }, fox: { lv: 1, exp: 0 }, cat: { lv: 1, exp: 0 } },
-        isPro: false, mistakes: {}, wordStats: {}, graduated: {},
+        isPro: false, 
+        mistakes: {},    // 這是原本的英文錯題
+        mistakesTw: {},  // ✨ [新增] 這是台語專用的錯題本
+        wordStats: {}, graduated: {},
         playerName: "" 
     };
     currentUser = "";
 }
 
+// 尋找 window.auth.onAuthStateChanged
 window.auth.onAuthStateChanged(async (user) => {
     if (user) {
-        resetGameState(); // 關鍵：登入時先清空上一位玩家的殘留資料
+        // ✨ 這裡才是 user 真正存在的地方
+        console.log("登入成功，正在載入用戶資料:", user.uid);
+        
+        // 1. 先重置狀態，避免殘留
+        resetGameState(); 
+
+        // 2. 優先嘗試從雲端同步
         const hasCloudData = await syncLoadFromCloud();
+        
+        // 3. 如果雲端沒資料，才抓本地對應該 UID 的資料
         if (!hasCloudData) {
             const localData = localStorage.getItem('vocabMaster_' + user.uid);
-            if (localData) Object.assign(gameState, JSON.parse(localData));
+            if (localData) {
+                Object.assign(gameState, JSON.parse(localData));
+                console.log("已載入本地帳號存檔");
+            }
         }
+
         migrateGrid();
         updateUI();
+        loadQuestion(); // 確保進入後立刻加載正確題庫
     } else {
+        // 沒人登入時清空資料
         resetGameState();
+        console.log("目前無人登入");
     }
 });
 
@@ -382,8 +451,22 @@ async function verifyLicenseKey() {
 
 function changeDifficulty() { 
     const selector = document.getElementById('in-game-difficulty');
-    if (selector.value !== "1" && !gameState.isPro) { showPaywall("中高級單字庫為專業版專屬！"); selector.value = gameState.difficulty; return; }
-    gameState.difficulty = selector.value; saveGame(); loadQuestion(); 
+    
+    // 選到台語時切換領域
+    if (selector.value === "tw") {
+        gameState.currentRealm = 'taiwanese';
+    } else {
+        gameState.currentRealm = 'english';
+        // 原本的英文版 Pro 檢查邏輯
+        if (selector.value !== "1" && !gameState.isPro) { 
+            showPaywall("中高級單字庫為專業版專屬！"); 
+            selector.value = gameState.difficulty; 
+            return; 
+        }
+    }
+    gameState.difficulty = selector.value; 
+    saveGame(); 
+    loadQuestion(); 
 }
 
 function toggleEnEnMode() {
@@ -462,15 +545,21 @@ function getCoinReward(wordLv) {
 // ==========================================
 
 function loadQuestion() {
-    if (typeof globalVocab === 'undefined') return;
+    // 1. 核心判斷：決定現在要抓哪一個題庫
+    // 如果 gameState.currentRealm 是 'taiwanese'，就用 twVocab，否則用原本的 globalVocab
+    const activePool = (gameState.currentRealm === 'taiwanese') ? twVocab : globalVocab;
+
+    if (typeof activePool === 'undefined') return;
 
     const displayContainer = document.getElementById('word-display').parentElement;
     const btnContainer = displayContainer.querySelector('div');
     if (btnContainer && btnContainer.style) btnContainer.style.display = 'flex';
 
-    let pool = globalVocab.filter(v => !gameState.graduated[v.w]);
+    // 2. 過濾已畢業單字
+    let pool = activePool.filter(v => !gameState.graduated[v.w]);
     
-    if (gameState.difficulty !== "all") {
+    // 3. 難度篩選：只有在「英文領域」才執行原本的難度過濾
+    if (gameState.currentRealm === 'english' && gameState.difficulty !== "all") {
         let d = parseInt(gameState.difficulty);
         let filtered = pool.filter(v => v.lv === d || v.lv === d + 1);
         if (filtered.length >= 4) {
@@ -479,16 +568,27 @@ function loadQuestion() {
             showToast(`⚠️ 單字數量不足，已暫時混入其他等級！`, "info");
         }
     }
-    if (pool.length < 4) pool = globalVocab; 
 
+    // 防呆：如果 pool 太小，就直接用該領域的全題庫
+    if (pool.length < 4) pool = activePool; 
+
+    // 4. 隨機選題邏輯 (保持不變)
     pool.forEach(w => { if(typeof w.weight === 'undefined') w.weight = 10; });
     let totalWeight = pool.reduce((sum, word) => sum + word.weight, 0);
     let randomNum = Math.random() * totalWeight;
     for (let word of pool) { if (randomNum < word.weight) { currentWord = word; break; } randomNum -= word.weight; }
     if (!currentWord || !currentWord.w) currentWord = pool[Math.floor(Math.random() * pool.length)];
     
-    document.getElementById('word-display').innerText = currentWord.w;
+    // 5. [新增] 題目顯示：如果是台文，額外顯示縮小的拼音
+    const wordDisplay = document.getElementById('word-display');
+    if (gameState.currentRealm === 'taiwanese') {
+        // 使用 innerHTML 來插入換行與拼音標籤
+        wordDisplay.innerHTML = `${currentWord.w}<br><span style="font-size: 0.5em; color: #7f8c8d; font-weight: bold;">${currentWord.p}</span>`;
+    } else {
+        wordDisplay.innerText = currentWord.w;
+    }
     
+    // 6. 獎勵與選項生成
     let baseReward = getCoinReward(currentWord.lv);
     let modeActive = isEnEnMode || isSynonymMode;
     document.getElementById('reward-hint').innerText = `答對獎勵：💰 ${modeActive ? baseReward * 2 : baseReward}`;
@@ -655,16 +755,38 @@ async function generateOptionsAsync(grid, baseReward) {
                 if (correctBtn) { correctBtn.style.backgroundColor = "#2ecc71"; correctBtn.style.color = "white"; correctBtn.style.borderColor = "#27ae60"; }
 
                 let finalizeWrongAnswer = () => {
-                    gameState.energy = Math.max(0, gameState.energy - 10); currentWord.weight += 10; 
-                    gameState.wordStats[currentWord.w].wrong += 1; gameState.wordStats[currentWord.w].consecutive = 0; 
-                    if (!gameState.mistakes[currentWord.w]) gameState.mistakes[currentWord.w] = { w: currentWord.w, c: currentWord.c, lv: currentWord.lv, count: 0 };
-                    gameState.mistakes[currentWord.w].count += 1; saveGame(); updateUI();
-                    
-                    setTimeout(() => { 
-                        if (Object.keys(gameState.mistakes).length >= 30) startForcedReview();
-                        else loadQuestion(); 
-                    }, 2000); 
-                };
+    gameState.energy = Math.max(0, gameState.energy - 10);
+    currentWord.weight += 10;
+    gameState.wordStats[currentWord.w].wrong += 1;
+    gameState.wordStats[currentWord.w].consecutive = 0;
+
+    // ✨ 關鍵分類邏輯
+    const isTw = (gameState.currentRealm === 'taiwanese');
+    const mistakePool = isTw ? gameState.mistakesTw : gameState.mistakes;
+
+    if (!mistakePool[currentWord.w]) {
+        mistakePool[currentWord.w] = { 
+            w: currentWord.w, 
+            c: currentWord.c, 
+            lv: currentWord.lv || 1, 
+            p: currentWord.p || "", // 台文多存一個拼音
+            count: 0 
+        };
+    }
+    mistakePool[currentWord.w].count += 1;
+
+    saveGame();
+    updateUI();
+
+    setTimeout(() => {
+        // 判斷是否需要強制複習 (這裡你可以決定要看哪一區的錯題數)
+        if (Object.keys(gameState.mistakes).length >= 30 || Object.keys(gameState.mistakesTw).length >= 30) {
+            startForcedReview();
+        } else {
+            loadQuestion();
+        }
+    }, 2000);
+};
 
                 if (gameState.inventory['shield'] > 0) {
                     gameState.inventory['shield']--;
@@ -866,25 +988,83 @@ function loadForcedReviewQuestion() {
 // ==========================================
 // 🚀 第三部分：面板、農場動畫與統一百格事件綁定
 // ==========================================
+let currentReviewTab = 'english'; // 預設顯示英文
 
-function openReviewArea() { document.getElementById('review-screen').classList.remove('hidden'); renderReviewList(); }
-function closeReviewArea() { document.getElementById('review-screen').classList.add('hidden'); }
+function openReviewArea() {
+    // 開啟時，自動根據目前的遊戲領域決定預設顯示哪一邊
+    currentReviewTab = (gameState.currentRealm === 'taiwanese') ? 'taiwanese' : 'english';
+    document.getElementById('review-screen').classList.remove('hidden');
+    renderReviewList();
+}function closeReviewArea() { document.getElementById('review-screen').classList.add('hidden'); }
+
+// 確保這行在函式外，用來紀錄目前看哪一頁
 
 function renderReviewList() {
     const list = document.getElementById('review-list');
-    let mistakesArr = Object.values(gameState.mistakes);
-    if (mistakesArr.length === 0) { list.innerHTML = "<div class='empty-review'>🎉 錯題本是空的！</div>"; return; }
+    
+    // 1. 決定抓哪一區的資料
+    const mistakesArr = (currentReviewTab === 'taiwanese') 
+        ? Object.values(gameState.mistakesTw || {}) 
+        : Object.values(gameState.mistakes || {});
 
-    let grouped = {}; mistakesArr.forEach(m => { let lv = m.lv || 1; if (!grouped[lv]) grouped[lv] = []; grouped[lv].push(m); });
+    // 2. 建立標籤按鈕 (改用 ID 標註，拿掉 onclick)
+    let tabHtml = `
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <button id="btn-review-en" style="flex: 1; padding: 12px; border-radius: 12px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s;
+                background: ${currentReviewTab === 'english' ? '#3498db' : '#ecf0f1'};
+                color: ${currentReviewTab === 'english' ? 'white' : '#7f8c8d'};
+                box-shadow: ${currentReviewTab === 'english' ? '0 4px 0 #2980b9' : 'none'};">
+                🔤 英文錯題
+            </button>
+            <button id="btn-review-tw" style="flex: 1; padding: 12px; border-radius: 12px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s;
+                background: ${currentReviewTab === 'taiwanese' ? '#27ae60' : '#ecf0f1'};
+                color: ${currentReviewTab === 'taiwanese' ? 'white' : '#7f8c8d'};
+                box-shadow: ${currentReviewTab === 'taiwanese' ? '0 4px 0 #219150' : 'none'};">
+                🏮 台文錯題
+            </button>
+        </div>
+    `;
 
-    list.innerHTML = "";
+    // 3. 空白檢查
+    if (mistakesArr.length === 0) { 
+        list.innerHTML = tabHtml + `<div class='empty-review'>🎉 ${currentReviewTab === 'taiwanese' ? '台文' : '英文'}錯題本是空的！</div>`; 
+        
+        // --- 即使是空的也要綁定切換按鈕，不然切不回去 ---
+        setupTabButtons();
+        return; 
+    }
+
+    // 4. 分級顯示邏輯
+    let grouped = {}; 
+    mistakesArr.forEach(m => { 
+        let lv = m.lv || 1; 
+        if (!grouped[lv]) grouped[lv] = []; 
+        grouped[lv].push(m); 
+    });
+
+    list.innerHTML = tabHtml;
+
+    // ✨ 核心修復：建立一個小函式來處理按鈕綁定
+    function setupTabButtons() {
+        const enBtn = document.getElementById('btn-review-en');
+        const twBtn = document.getElementById('btn-review-tw');
+        
+        if (enBtn) enBtn.onclick = () => { currentReviewTab = 'english'; renderReviewList(); };
+        if (twBtn) twBtn.onclick = () => { currentReviewTab = 'taiwanese'; renderReviewList(); };
+    }
+
+    // 執行按鈕綁定
+    setupTabButtons();
+
+    // 5. 渲染列表
     Object.keys(grouped).sort((a, b) => a - b).forEach(lv => {
         grouped[lv].sort((a, b) => b.count - a.count); 
         
         let header = document.createElement('h3');
         header.className = 'review-lv-header';
-        if(lv == 7) { header.style.background = "#c0392b"; header.style.color = "white"; header.innerText = "🔥 狂熱字源學 (字根)"; }
-        else { header.innerText = `Level ${lv} 單字`; }
+        header.style.background = (currentReviewTab === 'taiwanese') ? "#27ae60" : "#2980b9";
+        header.style.color = "white";
+        header.innerText = (lv == 7) ? "🔥 狂熱字源學 (字根)" : `${currentReviewTab === 'taiwanese' ? '台文' : 'Level'} ${lv} 錯題`;
         list.appendChild(header);
 
         grouped[lv].forEach(m => {
@@ -893,7 +1073,15 @@ function renderReviewList() {
             
             let infoDiv = document.createElement('div');
             infoDiv.className = 'review-word-info';
-            infoDiv.innerHTML = `<div class="review-word">${m.w} <span class="error-count-badge">錯了 ${m.count} 次</span></div><div class="review-mean">${m.c}</div>`;
+            
+            let wordDisplay = (currentReviewTab === 'taiwanese' && m.p) 
+                ? `${m.w} <span style="font-size:0.85em; color:#7f8c8d; font-weight:bold;">(${m.p})</span>` 
+                : m.w;
+
+            infoDiv.innerHTML = `
+                <div class="review-word">${wordDisplay} <span class="error-count-badge">錯了 ${m.count} 次</span></div>
+                <div class="review-mean">${m.c}</div>
+            `;
             
             let btn = document.createElement('button');
             btn.className = 'master-btn';
@@ -908,27 +1096,38 @@ function renderReviewList() {
 }
 
 function masterWord(wk) {
-    // 1. 增加確認視窗
-    if (!confirm(`確定複習完 [${wk}] 這個單字了嗎？\n(注意：亂按可能會觸發天堂特訓喔！😇)`)) return;
+    // --- 關鍵修正：替換掉標準提示窗，使用美化後的彈窗 ---
+    // 這是專業做法，能讓你的應用程序擁有統一且美觀的 UI 風格     
+    showBeautifulConfirmModal(`確定複習完 [${wk}] 了嗎？`, (confirmed) => {
+        if (!confirmed) return; // 用戶點擊取消或關閉彈窗，就提早結束
 
-    if (gameState.mistakes[wk]) {
-        delete gameState.mistakes[wk]; 
-        gameState.coins += 50; 
-        gameState.energy = Math.min(100, gameState.energy + 50);
-        gameState.inventory['radish'] = (gameState.inventory['radish'] || 0) + 1; 
-        
-        // 2. 紀錄複習次數，每十次觸發特訓
-        gameState.reviewClearCount = (gameState.reviewClearCount || 0) + 1;
+        // ... 接下來是你原本的 grouped 邏輯 ...
+        // 根據當前分頁決定刪除哪一區
+        const targetPool = (currentReviewTab === 'taiwanese') ? gameState.mistakesTw : gameState.mistakes;
 
-        saveGame(); 
-        updateUI(); 
-        renderReviewList();
-        showToast(`✨ 恭喜克服 [${wk}]！獲得獎勵！`, "success");
+        if (targetPool && targetPool[wk]) {
+            delete targetPool[wk]; 
+            
+            // 獎勵發放
+            gameState.coins += 50; 
+            gameState.energy = Math.min(100, gameState.energy + 50);
+            gameState.inventory['radish'] = (gameState.inventory['radish'] || 0) + 1; 
+            
+            // 累計複習次數
+            gameState.reviewClearCount = (gameState.reviewClearCount || 0) + 1;
 
-        if (gameState.reviewClearCount % 10 === 0) {
-            setTimeout(startHeavenTraining, 800);
+            saveGame(); 
+            updateUI(); 
+            renderReviewList(); // 即時更新列表
+            
+            showToast(`✨ 恭喜克服 [${wk}]！`, "success");
+
+            // 特訓觸發
+            if (gameState.reviewClearCount % 10 === 0) {
+                setTimeout(startHeavenTraining, 800);
+            }
         }
-    }
+    });
 }
 
 function openGraduatedArea() { document.getElementById('graduated-screen').classList.remove('hidden'); renderGraduatedList(); }
@@ -1525,18 +1724,65 @@ function claimDailyTask(taskId, reward) {
     gameState.dailyClaimed[taskId] = true; gameState.coins += reward; saveGame(); updateUI(); openDailyTasks(); showToast(`🎉 任務完成！獲得 💰 ${reward} 金幣！`, "success");
 }
 
+let activeAudio = null; 
+let isSpeaking = false; // 🔒 新增鎖定，防止重複觸發
+
 function speakCurrentWord(speedMode = 'normal') {
-    let displayElement = document.getElementById('word-display'); if (!displayElement) return;
-    let rawText = displayElement.innerText; if (rawText === "Ready?" || rawText.trim() === "") return;
-    let cleanWord = rawText.split('/')[0].split('(')[0].trim();
-    if (!('speechSynthesis' in window)) return showToast("⚠️ 您的瀏覽器不支援發音", "error");
+    if (!currentWord || isSpeaking) return; 
+    
+    // 鎖定 300ms，避免按一下觸發兩次
+    isSpeaking = true;
+    setTimeout(() => { isSpeaking = false; }, 300);
+
+    // --- 1. 本土台語模式 ---
+    if (gameState.currentRealm === 'taiwanese' && currentWord.audio) {
+        const audioId = currentWord.audio; 
+        const folderNum = Math.floor(parseInt(audioId) / 1000);
+        const audioUrl = `./assets/audio/${folderNum}/${audioId}(1).mp3`;
+        
+        if (activeAudio) { activeAudio.pause(); activeAudio = null; }
+
+        setTimeout(() => {
+            activeAudio = new Audio(audioUrl);
+            activeAudio.playbackRate = (speedMode === 'slow') ? 0.6 : 1.0;
+            activeAudio.play().catch(e => {
+                const fallbackUrl = `./assets/audio/${folderNum}/${audioId}.mp3`;
+                activeAudio = new Audio(fallbackUrl);
+                if (speedMode === 'slow') activeAudio.playbackRate = 0.6;
+                activeAudio.play().catch(err => console.log("台語音檔載入失敗"));
+            });
+        }, 50); 
+        return; 
+    }
+
+    // --- 2. 英文農場模式 ---
+    const wordDisplay = document.getElementById('word-display');
+    if (!wordDisplay) return;
+
+    // 🏆 超強力過濾：把 [n.] (v.) / 換行 通通切掉，只唸英文單字
+    const cleanWord = wordDisplay.innerText
+        .replace(/\[.*?\]/g, '')  
+        .replace(/\(.*?\)/g, '')  
+        .replace(/（.*?）/g, '')   
+        .split('\n')[0]           
+        .split('/')[0]            
+        .trim();
+    
+    if (!('speechSynthesis' in window)) return;
+    
+    // 徹底清除之前的語音排隊
     window.speechSynthesis.cancel();
+    
     setTimeout(() => {
-        let utterance = new SpeechSynthesisUtterance(cleanWord); utterance.lang = 'en-US';
-        if (speedMode === 'slow') { utterance.rate = 0.4; utterance.pitch = 1.0; } else { utterance.rate = 0.85; utterance.pitch = 1.1; }
-        let voices = window.speechSynthesis.getVoices();
-        let bestVoice = voices.find(v => v.name.includes('Google US English') || v.name.includes('Samantha') || v.name.includes('Aria')) || voices.find(v => v.lang.includes('en-US'));
-        if (bestVoice) utterance.voice = bestVoice; window.speechSynthesis.speak(utterance);
+        const utterance = new SpeechSynthesisUtterance(cleanWord);
+        utterance.lang = 'en-US';
+        utterance.rate = (speedMode === 'slow') ? 0.45 : 0.85; // 稍微調快一點點慢速
+        
+        const voices = window.speechSynthesis.getVoices();
+        const bestVoice = voices.find(v => v.name.includes('Google US English') || v.name.includes('Samantha')) || voices.find(v => v.lang.includes('en-US'));
+        if (bestVoice) utterance.voice = bestVoice;
+        
+        window.speechSynthesis.speak(utterance);
     }, 50);
 }
 if ('speechSynthesis' in window) { window.speechSynthesis.onvoiceschanged = () => { console.log("🔊 系統語音包已就緒"); }; }
@@ -1568,7 +1814,28 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     setInterval(saveGame, 5000);
+// --- 新增：選項卡切換監聽器 ---
+    // 這能確保在介面加載完成後，準確地為按鈕綁定事件
+    const btnSwitchEnglish = document.getElementById('btn-switch-english');
+    const btnSwitchTaiwanese = document.getElementById('btn-switch-taiwanese');
 
+    if (btnSwitchEnglish && btnSwitchTaiwanese) {
+        btnSwitchEnglish.addEventListener('click', () => {
+            if (window.currentReviewTab !== 'english') {
+                window.currentReviewTab = 'english';
+                renderReviewList();
+                updateUI(); // Optionally call updateUI to ensure any other dependent UI updates
+            }
+        });
+
+        btnSwitchTaiwanese.addEventListener('click', () => {
+            if (window.currentReviewTab !== 'taiwanese') {
+                window.currentReviewTab = 'taiwanese';
+                renderReviewList();
+                updateUI(); // Optionally call updateUI to ensure any other dependent UI updates
+            }
+        });
+    }
 
 
 
@@ -1584,8 +1851,19 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('in-game-difficulty')?.addEventListener('change', changeDifficulty);
     document.getElementById('en-en-mode-toggle')?.addEventListener('change', toggleEnEnMode);
     document.getElementById('synonym-mode-toggle')?.addEventListener('change', toggleSynonymMode);
-    document.getElementById('btn-speak-normal')?.addEventListener('click', () => speakCurrentWord('normal'));
-    document.getElementById('btn-speak-slow')?.addEventListener('click', () => speakCurrentWord('slow'));
+
+
+ // --- 找到這段並替換掉 ---
+document.getElementById('btn-speak-normal')?.addEventListener('click', () => {
+    speakCurrentWord('normal'); // 不要再這裡寫判斷了，統一交給 function 處理
+});
+
+document.getElementById('btn-speak-slow')?.addEventListener('click', () => {
+    speakCurrentWord('slow');
+});
+
+
+document.getElementById('btn-speak-slow')?.addEventListener('click', () => speakCurrentWord('slow'));
     document.getElementById('pro-upgrade-btn')?.addEventListener('click', () => showPaywall('解鎖完整 7000 單字庫與 VIP 寵物招募權限！'));
     document.getElementById('btn-back-to-map')?.addEventListener('click', backToMap);
     document.getElementById('btn-toggle-inventory')?.addEventListener('click', () => togglePanel('inventory'));
@@ -1758,19 +2036,7 @@ window.auth.onAuthStateChanged(async (user) => {
     }
 });
 
-// 當偵測到使用者登入時
-const uid = user.uid;
-const localData = localStorage.getItem('vocabMaster_' + uid);
 
-if (localData) {
-    // 只有找到對應這個 UID 的資料才載入
-    gameState = JSON.parse(localData);
-    renderGame(); 
-} else {
-    // 如果是全新帳號，記得把 gameState 重置成初始狀態
-    // 否則它會殘留上一個人的資料
-    resetGameState(); 
-}
 
 
 // ================= 天堂複習訓練 =================
