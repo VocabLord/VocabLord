@@ -38,7 +38,10 @@
                 <button id="btn-register" class="start-btn" style="flex: 1; background: #2ecc71; box-shadow: 0 5px 0 #27ae60;">註冊</button>
             </div>
 
-            
+            <button onclick="document.getElementById('sponsor-modal').classList.remove('hidden')" class="start-btn" style="width: 100%; margin-top: 15px; background: #9b59b6; box-shadow: 0 5px 0 #8e44ad; font-size: 1rem;">
+                ☕ 贊助開發團隊 (免登入)
+            </button>
+
             <div class="author-tag">資深英文教育專家＆領主數位工作室 研發出品</div>
         </div>
     </div>
@@ -255,23 +258,51 @@
     </div>
 
     <div id="paywall-modal" class="hidden overlay-modal">
-        <div class="paywall-box">
-            <button id="btn-close-paywall" class="close-btn">✖</button>
-            <h3 style="color: #f39c12;">🌟 專業版 (Pro) 限時特惠</h3>
-            <div class="price-tag">首發特價：NT$ 388 <span class="old-price">$499</span></div>
-            <p id="paywall-msg" style="font-weight: bold;"></p>
-            <ul class="pro-features">
-                <li>解鎖 Level 3 ~ 6 所有 7000 單字庫</li>
-                <li>解鎖最強寵物「比比拉布」</li>
-                <li>永久雲端保存學習進度</li>
-            </ul>
-            <div class="line-contact">
-                <p>請加入官方 LINE 獲取金鑰</p>
-                <img src="assets/line_qr.png" alt="LINE QR" style="width: 120px; border: 3px solid #2ecc71; border-radius: 10px;">
-                <p>ID: <b style="color: #27ae60; font-size: 1.2em;">bear20020228</b></p>
+    <div class="paywall-box">
+        <button id="btn-close-paywall" class="close-btn">✖</button>
+        <h3 style="color: #f39c12;">🌟 專業版 (Pro) 限時特惠</h3>
+        <div class="price-tag">首發特價：NT$ 388 <span class="old-price">$499</span></div>
+        <p id="paywall-msg" style="font-weight: bold;"></p>
+        <ul class="pro-features">
+            <li>解鎖 Level 3 ~ 6 所有 7000 單字庫</li>
+            <li>解鎖最強寵物「比比拉布」</li>
+            <li>永久雲端保存學習進度</li>
+        </ul>
+        
+        <div style="margin: 20px 0;">
+            <button id="btn-newebpay-checkout" style="background-color: #3498db; color: white; border: none; padding: 12px 20px; font-size: 1.1em; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                💳 信用卡 / 藍新金流線上支付
+            </button>
+        </div>
+
+        <div style="border-top: 1px dashed #ccc; padding-top: 15px; margin-top: 15px;">
+            <p style="font-size: 0.9em; color: #7f8c8d; margin-bottom: 8px;">已有實體金鑰？</p>
+            <div style="display: flex; justify-content: center; gap: 8px;">
+                <input type="text" id="license-input" placeholder="輸入金鑰" style="width: 60%; padding: 8px; border: 1px solid #bdc3c7; border-radius: 4px;">
+                <button id="btn-verify-license" class="unlock-btn" style="padding: 8px 12px; background-color: #2ecc71; color: white; border: none; border-radius: 4px; cursor: pointer;">驗證</button>
             </div>
-            <input type="text" id="license-input" placeholder="輸入金鑰">
-            <button id="btn-verify-license" class="unlock-btn">驗證並解鎖</button>
+        </div>
+    </div>
+</div>
+
+<div id="sponsor-modal" class="hidden overlay-modal">
+        <div class="paywall-box" style="text-align: center; position: relative;">
+            <button onclick="document.getElementById('sponsor-modal').classList.add('hidden')" class="close-btn" style="position: absolute; right: 15px; top: 15px; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #888;">✖</button>
+            
+            <h3 style="color: #9b59b6; margin-top: 10px;">☕ 贊助《字彙領主》開發</h3>
+            <p style="color: #555; font-size: 0.9em; margin-bottom: 20px; line-height: 1.5;">
+                如果您喜歡這款遊戲，歡迎贊助我們一杯咖啡！<br>您的支持是我們持續更新 7000 單字庫與新寵物的動力。
+            </p>
+            
+            <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 25px;">
+                <div style="padding: 10px 15px; border: 2px solid #bdc3c7; border-radius: 8px; cursor: pointer; background: white;">NT$ 100</div>
+                <div style="padding: 10px 15px; border: 2px solid #9b59b6; border-radius: 8px; cursor: pointer; background: #f4ecf7; font-weight: bold; color: #9b59b6;">NT$ 300</div>
+                <div style="padding: 10px 15px; border: 2px solid #bdc3c7; border-radius: 8px; cursor: pointer; background: white;">NT$ 500</div>
+            </div>
+
+            <button style="background-color: #3498db; color: white; border: none; padding: 12px 20px; font-size: 1.1em; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                💳 信用卡 / 藍新金流線上支付
+            </button>
         </div>
     </div>
 
