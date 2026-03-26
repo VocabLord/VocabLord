@@ -1664,41 +1664,64 @@ body.is-pro #pro-upgrade-btn {
     border: 1px solid #eee; 
 }
 
-#gacha-egg-img { 
-    position: fixed; 
-    top: 50%; 
-    left: 50%; 
-    width: 220px !important; 
-    z-index: 10001; 
-    transform: translate(-50%, -50%) rotate(0deg); 
-    transform-origin: center center !important; 
-}
 
-.gacha-shaking { 
-    display: block !important; 
-    animation: egg-slow-swing 1.5s infinite ease-in-out; 
-}
-
-@keyframes egg-slow-swing { 
-    0% { transform: translate(-50%, -50%) rotate(-10deg); } 
-    50% { transform: translate(-50%, -50%) rotate(10deg); } 
-    100% { transform: translate(-50%, -50%) rotate(-10deg); } 
-}
 
 .egg-panic-grow { 
     animation: eggPanickingAndGrowing 2.8s ease-in-out forwards; 
     transform-origin: center !important; 
 }
 
-@keyframes eggPanickingAndGrowing {
-    0%   { transform: scale(1) rotate(0deg); }
-    15%  { transform: scale(1.5) rotate(-15deg); }
-    30%  { transform: scale(2.5) rotate(15deg); }
-    50%  { transform: scale(4.0) rotate(-20deg); }
-    70%  { transform: scale(6.0) rotate(20deg); }
-    85%  { transform: scale(7.5) rotate(-25deg); }
-    95%  { transform: scale(9.0) rotate(0deg); opacity: 1; }
-    100% { transform: scale(12.0) rotate(0deg); opacity: 0; }
+/* style.css */
+
+/* ✨ 耀眼光芒 + 螢幕爆炸版 CSS 動畫 */
+/* style.css */
+
+/* ✨ 溫暖香檳金過場动画 - 降低亮度、保護眼睛版 */
+@keyframes eggPanickingAndGrowing { 
+    0%   { transform: scale(1) rotate(0deg); opacity: 1; filter: none; } 
+    /* ... 0%-80% 保持溫和顫動 + 放大 ... */
+    5%   { transform: scale(1.1) rotate(-5deg); } 
+    10%  { transform: scale(1.2) rotate(5deg); } 
+    15%  { transform: scale(1.3) rotate(-7deg); } 
+    20%  { transform: scale(1.5) rotate(7deg); } 
+    25%  { transform: scale(1.7) rotate(-8deg); } 
+    30%  { transform: scale(1.9) rotate(8deg); } 
+    35%  { transform: scale(2.1) rotate(-10deg); } 
+    40%  { transform: scale(2.3) rotate(10deg); } 
+    45%  { transform: scale(2.5) rotate(-10deg); } 
+    50%  { transform: scale(2.8) rotate(10deg); } 
+    55%  { transform: scale(3.1) rotate(-12deg); } 
+    60%  { transform: scale(3.4) rotate(12deg); } 
+    65%  { transform: scale(3.7) rotate(-12deg); } 
+    70%  { transform: scale(4.0) rotate(12deg); } 
+    80%  { transform: scale(4.8) rotate(0deg); filter: drop-shadow(0 0 10px rgba(241,196,15,0.5)); } 
+
+    /* 🌟 85%-100%: 關鍵轉折！開始爆發溫暖金光 (不再使用純白) */
+    85%  { 
+        transform: scale(6.0) rotate(0deg); 
+        opacity: 1; 
+        /* 溫和的金色光暈，最高亮度大幅降低 (原本亮度3 -> 現在1.8) */
+        filter: brightness(1.8) drop-shadow(0 0 30px #f39c12); 
+    } 
+    90%  { 
+        transform: scale(9.0) rotate(0deg); 
+        opacity: 1; 
+        /* 轉向香檳金，亮度保底 (原本亮度20+ -> 現在3) */
+        filter: brightness(3.0) sepia(0.8) hue-rotate(0deg) blur(2px) drop-shadow(0 0 60px #e67e22); 
+    } 
+    95%  { 
+        /* 金蛋擴張，融入溫暖琥珀色光芒中，不再是模糊的死白 */
+        transform: scale(15.0) rotate(0deg); 
+        opacity: 0.9; 
+        filter: brightness(3.5) sepia(0.9) blur(10px); 
+    } 
+    100% { 
+        /* 最終狀態：金蛋徹底化作純白光芒覆蓋全螢幕，然後 vanishing */
+        transform: scale(25.0) rotate(0deg); 
+        opacity: 0; 
+        /* 降低最終模糊度和尺寸，減少視覺衝擊 */
+        filter: brightness(4.0) blur(30px); 
+    } 
 }
 
 .gacha-explosion-overlay { 
