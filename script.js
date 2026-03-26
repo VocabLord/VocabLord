@@ -73,7 +73,7 @@ let clouds = [
 let currentUser = "";
 let gameState = {
     coins: 100, energy: 100, combo: 0,
-    currentRealm: 'english', // <--- 加在這裡
+    currentRealm: 'english', 
     inventory: { carrot: 0, tomato: 0, radish: 0 },
     farmTiles: [], difficulty: "1", currentPet: "pig", 
     currentSeed: "carrot", 
@@ -85,8 +85,21 @@ let gameState = {
     graduated: {}  
 };
 
+// 🌟 關鍵修復：把寵物資料移到 migrateGrid 函數「之前」，讓程式先認識它們
+let activePets = {
+    pig: { x: 4, y: 3, targetX: 4, targetY: 3, state: 'idle', timer: 0, dir: 'Down' },
+    fox: { x: 7, y: 4, targetX: 7, targetY: 4, state: 'idle', timer: 0, dir: 'Down' },
+    cat: { x: 2, y: 2, targetX: 2, targetY: 2, state: 'idle', timer: 0, dir: 'Down' }
+};
+
+const PET_DATA = {
+    pig: { id: 'pig', title: '神豬', cost: 0, desc: '預設擁有' },
+    fox: { id: 'fox', title: '我的刀盾', cost: 15000, desc: '需 💰15,000' },
+    cat: { id: 'cat', title: '比比拉布', cost: 50000, desc: '💰50,000 (Pro解鎖)' } 
+};
+
+// 🌟 然後才是執行健檢與修復
 function migrateGrid() {
-    // 1. 原本的農場網格存檔修復
     if (!gameState.farmTiles || gameState.farmTiles.length !== ROWS || !gameState.farmTiles[0] || gameState.farmTiles[0].length !== COLS) {
         let newTiles = Array.from({length: ROWS}, () => Array.from({length: COLS}, () => ({ plant: false, type: null, progress: 0 })));
         if (gameState.farmTiles && gameState.farmTiles.length > 0) {
@@ -99,38 +112,21 @@ function migrateGrid() {
         gameState.farmTiles = newTiles;
     }
 
-    // 🌟 2. [新增] 寵物存檔防呆與自動修復
     if (!gameState.petStats) gameState.petStats = { pig: { lv: 1, exp: 0 } };
     if (!gameState.petsOwned) gameState.petsOwned = ['pig'];
-    if (!gameState.currentPet) gameState.currentPet = 'pig';
     
-    // 確保所有擁有的寵物，都一定有對應的等級 (lv) 和經驗值 (exp) 資料
-    gameState.petsOwned.forEach(pid => {
-        if (!gameState.petStats[pid]) {
-            gameState.petStats[pid] = { lv: 1, exp: 0 };
-        }
-    });
-    
-    // 確保目前裝備的寵物是合法的
-    if (!gameState.petStats[gameState.currentPet]) {
+    // 現在這裡抓得到 PET_DATA 了，不會再爆炸
+    if (!gameState.currentPet || !PET_DATA[gameState.currentPet]) {
         gameState.currentPet = 'pig';
     }
+    
+    gameState.petsOwned.forEach(pid => {
+        if (!gameState.petStats[pid]) gameState.petStats[pid] = { lv: 1, exp: 0 };
+    });
 
     saveGame();
 }
-migrateGrid();
-
-let activePets = {
-    pig: { x: 4, y: 3, targetX: 4, targetY: 3, state: 'idle', timer: 0, dir: 'Down' },
-    fox: { x: 7, y: 4, targetX: 7, targetY: 4, state: 'idle', timer: 0, dir: 'Down' },
-    cat: { x: 2, y: 2, targetX: 2, targetY: 2, state: 'idle', timer: 0, dir: 'Down' }
-};
-
-const PET_DATA = {
-    pig: { id: 'pig', title: '神豬', cost: 0, desc: '預設擁有' },
-    fox: { id: 'fox', title: '我的刀盾', cost: 15000, desc: '需 💰15,000' },
-    cat: { id: 'cat', title: '比比拉布', cost: 50000, desc: '💰50,000 (Pro解鎖)' } 
-};
+migrateGrid(); // <--- 移到最後才呼叫
 
 
 // 🛍️ 道具與卷軸資料 (抽卡使用)
@@ -1975,8 +1971,14 @@ function updateUI() {
     if (gameState.combo >= 3) { if (comboBadge) comboBadge.classList.remove('hidden'); if (comboCount) comboCount.innerText = gameState.combo; } 
     else { if (comboBadge) comboBadge.classList.add('hidden'); }
 
-    let cp = gameState.currentPet; let stat = gameState.petStats[cp];
-    const expFill = document.getElementById('exp-fill'); let reqExp = Math.floor(100 * Math.pow(1.15, stat.lv - 1));
+    // 🌟 關鍵保護網：確保介面不會因為抓不到寵物而當機
+    let cp = gameState.currentPet; 
+    if (!cp || !PET_DATA[cp]) { cp = 'pig'; gameState.currentPet = 'pig'; }
+    if (!gameState.petStats[cp]) { gameState.petStats[cp] = { lv: 1, exp: 0 }; }
+    let stat = gameState.petStats[cp];
+
+    const expFill = document.getElementById('exp-fill'); 
+    let reqExp = Math.floor(100 * Math.pow(1.15, stat.lv - 1));
     if(expFill) expFill.style.width = (stat.exp / reqExp * 100) + "%";
     const pigLv = document.getElementById('pig-lv'); if(pigLv) pigLv.innerText = stat.lv;
     const playerName = document.getElementById('player-name-display'); if(playerName) playerName.innerText = currentUser + " 的 " + (stat.customName || PET_DATA[cp].title);
